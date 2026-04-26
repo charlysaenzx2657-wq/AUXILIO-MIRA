@@ -49,49 +49,25 @@ public class ShizukuHelper {
         } catch (Exception e) { Log.w(TAG, "abrirShizuku: " + e); }
     }
 
-    /**
-     * Verificación REAL del permiso WRITE_SECURE_SETTINGS.
-     * Usa 3 niveles de verificación porque algunas ROMs cachean valores.
-     */
     public static boolean tienePermiso(Context ctx) {
-        // NIVEL 1: Verificar via PackageManager (lo más confiable)
         try {
             int result = ctx.checkCallingOrSelfPermission(
                 "android.permission.WRITE_SECURE_SETTINGS");
-            if (result == PackageManager.PERMISSION_GRANTED) {
-                return true;
-            }
-        } catch (Throwable t) {
-            Log.w(TAG, "checkPermission: " + t.getMessage());
-        }
-
-        // NIVEL 2: Intentar escribir en una clave del sistema que SIEMPRE requiere
-        // el permiso real (no cacheada por ROMs). Usamos una clave conocida.
+            if (result == PackageManager.PERMISSION_GRANTED) return true;
+        } catch (Throwable ignored) {}
         try {
             ContentResolver cr = ctx.getContentResolver();
-            // Leer el valor original
             String original = Settings.Secure.getString(cr, "user_setup_complete");
-            // Intentar escribir el mismo valor (no cambia nada pero valida permiso)
             Settings.Secure.putString(cr, "user_setup_complete",
                 original != null ? original : "1");
             return true;
-        } catch (SecurityException se) {
-            return false;
-        } catch (Throwable t) {
-            // Continuar al siguiente nivel
-        }
-
-        // NIVEL 3: Verificar via Shizuku directamente (sin escribir)
-        // Si Shizuku está corriendo y la app está autorizada
+        } catch (Throwable ignored) {}
         try {
             Class<?> shizukuClass = Class.forName("rikka.shizuku.Shizuku");
             Method checkPerm = shizukuClass.getMethod("checkSelfPermission");
             Object result = checkPerm.invoke(null);
-            if (result instanceof Integer && (Integer) result == 0) {
-                return true;
-            }
+            if (result instanceof Integer && (Integer) result == 0) return true;
         } catch (Throwable ignored) {}
-
         return false;
     }
 
@@ -133,15 +109,13 @@ public class ShizukuHelper {
         return false;
     }
 
-    /**
-     * Estado detallado del permiso para mostrar al usuario.
-     */
     public static String estadoPermisoDetallado(Context ctx) {
         boolean shizukuInst = shizukuInstalado(ctx);
         boolean shizukuRun = shizukuActivo(ctx);
         boolean permPM = false;
         boolean permSecure = false;
         boolean permShizuku = false;
+        boolean rishWorks = false;
 
         try {
             permPM = ctx.checkCallingOrSelfPermission(
@@ -163,14 +137,22 @@ public class ShizukuHelper {
             permShizuku = (r instanceof Integer && (Integer) r == 0);
         } catch (Throwable ignored) {}
 
+        // Probar rish directo
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"sh","-c","rish -c \"echo test\" 2>/dev/null"});
+            p.waitFor();
+            rishWorks = (p.exitValue() == 0);
+        } catch (Exception ignored) {}
+
         StringBuilder sb = new StringBuilder();
         sb.append("Shizuku instalado: ").append(shizukuInst ? "SI" : "NO").append("\n");
         sb.append("Shizuku corriendo: ").append(shizukuRun ? "SI" : "NO").append("\n");
         sb.append("Permiso PackageManager: ").append(permPM ? "SI" : "NO").append("\n");
         sb.append("Permiso Settings escritura: ").append(permSecure ? "SI" : "NO").append("\n");
-        sb.append("Permiso via Shizuku API: ").append(permShizuku ? "SI" : "NO").append("\n\n");
+        sb.append("Permiso via Shizuku API: ").append(permShizuku ? "SI" : "NO").append("\n");
+        sb.append("rish funcional: ").append(rishWorks ? "SI" : "NO").append("\n\n");
 
-        if (permPM || permSecure || permShizuku) {
+        if (permPM || permSecure || permShizuku || rishWorks) {
             sb.append("RESULTADO: PUEDES INYECTAR");
         } else if (shizukuRun) {
             sb.append("RESULTADO: Abre Shizuku y autoriza esta app (icono +)");
@@ -183,28 +165,46 @@ public class ShizukuHelper {
         return sb.toString();
     }
 
+    /**
+     * Aplica comandos INTENTANDO TODOS LOS MÉTODOS para cada uno.
+     * No pre-verifica permisos — intenta aplicar y reporta lo que sí funciona.
+     * Esto resuelve el problema de ROMs que cachean el estado del permiso.
+     */
     public static void aplicarComandosAsync(Context ctx, String[] comandos,
                                              ProgressCallback cb, Handler ui) {
         new Thread(() -> {
-            int modo = detectarMejorModo(ctx);
-            Log.i(TAG, "Modo de inyección: " + modo);
             int total = comandos.length;
+            // Detectar capacidades una vez al inicio
+            boolean tieneRoot = tieneRoot();
+            boolean tieneShizuku = shizukuActivo(ctx);
+            Log.i(TAG, "Capacidades: root=" + tieneRoot + " shizuku=" + tieneShizuku);
+
             for (int i = 0; i < total; i++) {
                 final int idx = i;
                 String cmd = comandos[i].trim();
                 boolean ok = false;
                 String err = null;
+
+                // INTENTAR LOS 3 MÉTODOS EN ORDEN, no importa lo que diga el "permiso"
+                // Método 1: ContentResolver (más rápido, requiere WRITE_SECURE_SETTINGS)
                 try {
-                    switch (modo) {
-                        case 1: ok = aplicarConContentResolver(ctx, cmd); break;
-                        case 2: ok = aplicarConSu(cmd); break;
-                        case 3: ok = aplicarConShizuku(ctx, cmd); break;
-                        default: err = "Sin permiso"; break;
-                    }
-                } catch (Exception e) {
-                    Log.w(TAG, "Error: " + cmd, e);
-                    err = e.getMessage();
+                    ok = aplicarConContentResolver(ctx, cmd);
+                } catch (Throwable t) { err = t.getMessage(); }
+
+                // Método 2: rish/Shizuku si disponible y CR falló
+                if (!ok && tieneShizuku) {
+                    try {
+                        ok = aplicarConShizuku(ctx, cmd);
+                    } catch (Throwable t) { err = t.getMessage(); }
                 }
+
+                // Método 3: su si hay root y los anteriores fallaron
+                if (!ok && tieneRoot) {
+                    try {
+                        ok = aplicarConSu(cmd);
+                    } catch (Throwable t) { err = t.getMessage(); }
+                }
+
                 final boolean okFinal = ok;
                 final String cmdFinal = cmd;
                 final String errFinal = err;
@@ -212,7 +212,7 @@ public class ShizukuHelper {
                     if (okFinal) cb.onProgress(idx + 1, total, cmdFinal);
                     else cb.onError(cmdFinal, errFinal != null ? errFinal : "no aplicado");
                 });
-                try { Thread.sleep(4); } catch (Exception ignored) {}
+                try { Thread.sleep(3); } catch (Exception ignored) {}
             }
             if (cb != null) ui.post(() -> cb.onComplete(total));
         }).start();
@@ -221,13 +221,6 @@ public class ShizukuHelper {
     public static void aplicarComandos(Context ctx, String[] comandos, ProgressCallback cb) {
         Handler h = new Handler(ctx.getMainLooper());
         aplicarComandosAsync(ctx, comandos, cb, h);
-    }
-
-    private static int detectarMejorModo(Context ctx) {
-        if (tienePermiso(ctx)) return 1;
-        if (tieneRoot()) return 2;
-        if (shizukuActivo(ctx)) return 3;
-        return 0;
     }
 
     private static boolean aplicarConContentResolver(Context ctx, String cmd) {
@@ -243,7 +236,7 @@ public class ShizukuHelper {
                 case "secure": Settings.Secure.putString(cr, key, val); return true;
                 case "global": Settings.Global.putString(cr, key, val); return true;
             }
-        } catch (Throwable e) { Log.w(TAG, "CR: " + e.getMessage()); }
+        } catch (Throwable e) { return false; }
         return false;
     }
 
@@ -261,11 +254,14 @@ public class ShizukuHelper {
     }
 
     private static boolean aplicarConShizuku(Context ctx, String cmd) {
+        // Método 1: rish binario
         try {
-            Process p = Runtime.getRuntime().exec(new String[]{"sh","-c","rish -c \"" + cmd + "\""});
+            Process p = Runtime.getRuntime().exec(new String[]{"sh","-c","rish -c \"" + cmd + "\" 2>&1"});
             p.waitFor();
             if (p.exitValue() == 0) return true;
         } catch (Exception ignored) {}
+
+        // Método 2: Shizuku newProcess via reflection
         try {
             Class<?> shizukuClass = Class.forName("rikka.shizuku.Shizuku");
             Method newProcess = shizukuClass.getMethod("newProcess",
@@ -274,10 +270,11 @@ public class ShizukuHelper {
             Object proc = newProcess.invoke(null, args, null, null);
             if (proc != null) {
                 Method waitFor = proc.getClass().getMethod("waitFor");
-                waitFor.invoke(proc);
-                return true;
+                Object exitCode = waitFor.invoke(proc);
+                return exitCode instanceof Integer && (Integer) exitCode == 0;
             }
         } catch (Exception ignored) {}
+
         return false;
     }
 
