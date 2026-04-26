@@ -50,17 +50,49 @@ public class ShizukuHelper {
     }
 
     /**
-     * Verifica si la app puede escribir en Settings.Secure (lo que Shizuku otorga).
+     * Verificación REAL del permiso WRITE_SECURE_SETTINGS.
+     * Usa 3 niveles de verificación porque algunas ROMs cachean valores.
      */
     public static boolean tienePermiso(Context ctx) {
+        // NIVEL 1: Verificar via PackageManager (lo más confiable)
         try {
-            String tmpKey = "_aux_mira_test_" + System.currentTimeMillis();
-            Settings.Secure.putString(ctx.getContentResolver(), tmpKey, "1");
-            String r = Settings.Secure.getString(ctx.getContentResolver(), tmpKey);
-            return "1".equals(r);
+            int result = ctx.checkCallingOrSelfPermission(
+                "android.permission.WRITE_SECURE_SETTINGS");
+            if (result == PackageManager.PERMISSION_GRANTED) {
+                return true;
+            }
         } catch (Throwable t) {
-            return false;
+            Log.w(TAG, "checkPermission: " + t.getMessage());
         }
+
+        // NIVEL 2: Intentar escribir en una clave del sistema que SIEMPRE requiere
+        // el permiso real (no cacheada por ROMs). Usamos una clave conocida.
+        try {
+            ContentResolver cr = ctx.getContentResolver();
+            // Leer el valor original
+            String original = Settings.Secure.getString(cr, "user_setup_complete");
+            // Intentar escribir el mismo valor (no cambia nada pero valida permiso)
+            Settings.Secure.putString(cr, "user_setup_complete",
+                original != null ? original : "1");
+            return true;
+        } catch (SecurityException se) {
+            return false;
+        } catch (Throwable t) {
+            // Continuar al siguiente nivel
+        }
+
+        // NIVEL 3: Verificar via Shizuku directamente (sin escribir)
+        // Si Shizuku está corriendo y la app está autorizada
+        try {
+            Class<?> shizukuClass = Class.forName("rikka.shizuku.Shizuku");
+            Method checkPerm = shizukuClass.getMethod("checkSelfPermission");
+            Object result = checkPerm.invoke(null);
+            if (result instanceof Integer && (Integer) result == 0) {
+                return true;
+            }
+        } catch (Throwable ignored) {}
+
+        return false;
     }
 
     public static boolean tieneRoot() {
@@ -71,40 +103,26 @@ public class ShizukuHelper {
         } catch (Exception e) { return false; }
     }
 
-    /**
-     * Detecta si el servicio Shizuku está corriendo, intentando varias formas:
-     * 1) Via reflection de la clase Shizuku si está enlazada
-     * 2) Via binder de "shizuku_service" en el ServiceManager
-     * 3) Via el binario "rish" en /data/local/tmp
-     * 4) Via process listing de "moe.shizuku"
-     */
     public static boolean shizukuActivo(Context ctx) {
         if (!shizukuInstalado(ctx)) return false;
-        // 1) Reflection (si la app incluyera el SDK)
         try {
             Class<?> shizukuClass = Class.forName("rikka.shizuku.Shizuku");
             Method pingBinder = shizukuClass.getMethod("pingBinder");
             Object result = pingBinder.invoke(null);
             if (result != null && (Boolean) result) return true;
         } catch (Throwable ignored) {}
-
-        // 2) Binder en ServiceManager
         try {
             Class<?> sm = Class.forName("android.os.ServiceManager");
             Method getService = sm.getMethod("getService", String.class);
             IBinder b = (IBinder) getService.invoke(null, "shizuku");
             if (b != null && b.pingBinder()) return true;
         } catch (Throwable ignored) {}
-
-        // 3) Binario rish
         try {
             Process p = Runtime.getRuntime().exec(new String[]{"sh","-c","ls /data/local/tmp/shizuku 2>/dev/null"});
             BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
             if (br.readLine() != null) { p.waitFor(); return true; }
             p.waitFor();
         } catch (Exception ignored) {}
-
-        // 4) ps listing
         try {
             Process p = Runtime.getRuntime().exec(new String[]{"sh","-c","ps -A | grep shizuku"});
             BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
@@ -112,8 +130,57 @@ public class ShizukuHelper {
             p.waitFor();
             if (l != null && l.contains("shizuku")) return true;
         } catch (Exception ignored) {}
-
         return false;
+    }
+
+    /**
+     * Estado detallado del permiso para mostrar al usuario.
+     */
+    public static String estadoPermisoDetallado(Context ctx) {
+        boolean shizukuInst = shizukuInstalado(ctx);
+        boolean shizukuRun = shizukuActivo(ctx);
+        boolean permPM = false;
+        boolean permSecure = false;
+        boolean permShizuku = false;
+
+        try {
+            permPM = ctx.checkCallingOrSelfPermission(
+                "android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED;
+        } catch (Throwable ignored) {}
+
+        try {
+            ContentResolver cr = ctx.getContentResolver();
+            String original = Settings.Secure.getString(cr, "user_setup_complete");
+            Settings.Secure.putString(cr, "user_setup_complete",
+                original != null ? original : "1");
+            permSecure = true;
+        } catch (Throwable ignored) {}
+
+        try {
+            Class<?> shizukuClass = Class.forName("rikka.shizuku.Shizuku");
+            Method checkPerm = shizukuClass.getMethod("checkSelfPermission");
+            Object r = checkPerm.invoke(null);
+            permShizuku = (r instanceof Integer && (Integer) r == 0);
+        } catch (Throwable ignored) {}
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Shizuku instalado: ").append(shizukuInst ? "SI" : "NO").append("\n");
+        sb.append("Shizuku corriendo: ").append(shizukuRun ? "SI" : "NO").append("\n");
+        sb.append("Permiso PackageManager: ").append(permPM ? "SI" : "NO").append("\n");
+        sb.append("Permiso Settings escritura: ").append(permSecure ? "SI" : "NO").append("\n");
+        sb.append("Permiso via Shizuku API: ").append(permShizuku ? "SI" : "NO").append("\n\n");
+
+        if (permPM || permSecure || permShizuku) {
+            sb.append("RESULTADO: PUEDES INYECTAR");
+        } else if (shizukuRun) {
+            sb.append("RESULTADO: Abre Shizuku y autoriza esta app (icono +)");
+        } else if (shizukuInst) {
+            sb.append("RESULTADO: Inicia el servicio Shizuku primero");
+        } else {
+            sb.append("RESULTADO: Instala Shizuku o usa ADB");
+        }
+
+        return sb.toString();
     }
 
     public static void aplicarComandosAsync(Context ctx, String[] comandos,
@@ -223,8 +290,6 @@ public class ShizukuHelper {
             "settings put global fstrim_mandatory_interval 0",
             "settings put global package_verifier_enable 0",
             "settings put global netstats_enabled 0",
-            "settings put global wifi_verbose_logging_enabled 0",
-            "settings put global bluetooth_verbose_logging_enabled 0",
         };
         for (String c : cmdCache) {
             try { aplicarConContentResolver(ctx, c); } catch (Throwable ignored) {}

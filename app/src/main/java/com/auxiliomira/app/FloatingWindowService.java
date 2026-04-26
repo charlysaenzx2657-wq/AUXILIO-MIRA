@@ -1,5 +1,6 @@
 package com.auxiliomira.app;
 
+import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -39,7 +40,7 @@ public class FloatingWindowService extends Service {
     private View floatingRoot;
     private LinearLayout bubble;
     private LinearLayout panel;
-    private TextView tvStatus;        // mensajes de estado dentro del panel
+    private TextView tvStatus;
     private boolean expandido = false;
     private WindowManager.LayoutParams params;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
@@ -98,7 +99,6 @@ public class FloatingWindowService extends Service {
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         DisplayMetrics dm = getResources().getDisplayMetrics();
 
-        // ── BURBUJA cuadrada con icono ──
         int bSize = (int)(dm.density * 48);
         bubble = new LinearLayout(this);
         bubble.setOrientation(LinearLayout.VERTICAL);
@@ -122,7 +122,6 @@ public class FloatingWindowService extends Service {
         LinearLayout.LayoutParams bubbleLp = new LinearLayout.LayoutParams(bSize, bSize);
         bubble.setLayoutParams(bubbleLp);
 
-        // ── PANEL HORIZONTAL (acostado) ──
         panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setVisibility(View.GONE);
@@ -133,7 +132,6 @@ public class FloatingWindowService extends Service {
         panel.setBackground(bgP);
         panel.setPadding(8, 8, 8, 8);
 
-        // Título
         TextView tvT = new TextView(this);
         tvT.setText("AUXILIO MIRA");
         tvT.setTextSize(11);
@@ -142,7 +140,6 @@ public class FloatingWindowService extends Service {
         tvT.setGravity(Gravity.CENTER);
         panel.addView(tvT);
 
-        // ── Status bar (avisos de aplicación) ──
         tvStatus = new TextView(this);
         tvStatus.setText("Selecciona modulos");
         tvStatus.setTextSize(9);
@@ -152,11 +149,9 @@ public class FloatingWindowService extends Service {
         tvStatus.setBackgroundColor(0xFF1A0000);
         panel.addView(tvStatus);
 
-        // ── Layout de 2 COLUMNAS lado a lado ──
         LinearLayout twoCols = new LinearLayout(this);
         twoCols.setOrientation(LinearLayout.HORIZONTAL);
 
-        // Col izquierda: módulos en scroll
         ScrollView svLeft = new ScrollView(this);
         LinearLayout colLeft = new LinearLayout(this);
         colLeft.setOrientation(LinearLayout.VERTICAL);
@@ -187,7 +182,6 @@ public class FloatingWindowService extends Service {
         lpLeft.setMargins(0, 0, 4, 0);
         svLeft.setLayoutParams(lpLeft);
 
-        // Col derecha: botones acción
         ScrollView svRight = new ScrollView(this);
         LinearLayout colRight = new LinearLayout(this);
         colRight.setOrientation(LinearLayout.VERTICAL);
@@ -219,7 +213,7 @@ public class FloatingWindowService extends Service {
         });
         colRight.addView(btnCache);
 
-        Button btnPerm = btnV("Permiso?", 0xFF0A001A, 0xFFCC88FF);
+        Button btnPerm = btnV("Diagnostico", 0xFF0A001A, 0xFFCC88FF);
         btnPerm.setOnClickListener(v -> verificarPermiso());
         colRight.addView(btnPerm);
 
@@ -246,7 +240,6 @@ public class FloatingWindowService extends Service {
         twoCols.addView(svLeft);
         twoCols.addView(svRight);
 
-        // Altura del área scrollable - tipo "tabla" media
         int panelH = (int)(dm.heightPixels * 0.42f);
         twoCols.setLayoutParams(new LinearLayout.LayoutParams(-1, panelH));
         panel.addView(twoCols);
@@ -261,7 +254,6 @@ public class FloatingWindowService extends Service {
             ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             : WindowManager.LayoutParams.TYPE_PHONE;
 
-        // Ancho 78% de pantalla = "acostado" tipo tabla
         params = new WindowManager.LayoutParams(
             (int)(dm.widthPixels * 0.78f),
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -315,27 +307,15 @@ public class FloatingWindowService extends Service {
         });
     }
 
+    /**
+     * Muestra un diagnóstico detallado del estado del permiso.
+     */
     private void verificarPermiso() {
-        boolean tienePermiso = ShizukuHelper.tienePermiso(this);
-        boolean shizukuActivo = ShizukuHelper.shizukuActivo(this);
-        boolean shizukuInstalado = ShizukuHelper.shizukuInstalado(this);
-
-        String msg;
-        if (tienePermiso) {
-            msg = "OK Permiso ACTIVO - puedes inyectar";
-            tvStatus.setTextColor(0xFF00FF00);
-        } else if (shizukuActivo) {
-            msg = "Shizuku activo, falta autorizar la app";
-            tvStatus.setTextColor(0xFFFFAA00);
-        } else if (shizukuInstalado) {
-            msg = "Shizuku instalado pero NO corriendo";
-            tvStatus.setTextColor(0xFFFF6600);
-        } else {
-            msg = "Shizuku NO instalado";
-            tvStatus.setTextColor(0xFFFF0000);
-        }
-        tvStatus.setText(msg);
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+        String diag = ShizukuHelper.estadoPermisoDetallado(this);
+        actualizarStatus("Ver diagnostico");
+        Toast.makeText(this, diag, Toast.LENGTH_LONG).show();
+        // Mostrar también en el panel
+        tvStatus.setText(diag.replace("\n", " | ").substring(0, Math.min(80, diag.length())));
     }
 
     private void aplicarSeleccionados() {
@@ -355,16 +335,11 @@ public class FloatingWindowService extends Service {
 
         if (lista.isEmpty()) {
             actualizarStatus("Selecciona al menos uno");
-            Toast.makeText(this,"Selecciona al menos uno",Toast.LENGTH_SHORT).show();
             return;
         }
 
-        if (!ShizukuHelper.tienePermiso(this)) {
-            actualizarStatus("ERROR: Sin permiso. Toca Permiso?");
-            Toast.makeText(this,"Sin permiso. Activa Shizuku",Toast.LENGTH_LONG).show();
-            return;
-        }
-
+        // Usar el modo detectado, no bloquear si no detecta WRITE_SECURE_SETTINGS
+        // porque puede haber cache de la ROM. Intentar igual.
         actualizarStatus("Aplicando " + lista.size() + " cmds...");
         final int[] aplicados = {0};
         final int[] errores = {0};
@@ -376,9 +351,14 @@ public class FloatingWindowService extends Service {
                     actualizarStatus("Aplicando " + a + "/" + t);
                 }
                 public void onComplete(int t) {
-                    String resumen = "OK " + aplicados[0] + "/" + t + " aplicados " + (errores[0]>0 ? "("+errores[0]+" err)" : "") + " - " + modulosSel.toString();
+                    String resumen;
+                    if (aplicados[0] == 0) {
+                        resumen = "ERROR: 0 aplicados. Toca Diagnostico";
+                    } else {
+                        resumen = "OK " + aplicados[0] + "/" + t + " " + (errores[0]>0 ? "("+errores[0]+" err) " : "") + modulosSel.toString();
+                    }
                     actualizarStatus(resumen);
-                    Toast.makeText(FloatingWindowService.this, "OK " + aplicados[0] + " cmds aplicados", Toast.LENGTH_LONG).show();
+                    Toast.makeText(FloatingWindowService.this, aplicados[0]+" cmds aplicados", Toast.LENGTH_LONG).show();
                 }
                 public void onError(String c, String e) { errores[0]++; }
             }, uiHandler);
@@ -398,33 +378,28 @@ public class FloatingWindowService extends Service {
         for (String c:AllCommands.CMDS_SCROLL) all.add(c);
         for (String c:AllCommands.CMDS_ANTIRECOIL) all.add(c);
 
-        if (!ShizukuHelper.tienePermiso(this)) {
-            actualizarStatus("ERROR: Sin permiso. Toca Permiso?");
-            Toast.makeText(this, "Sin permiso. Activa Shizuku", Toast.LENGTH_LONG).show();
-            return;
-        }
-
         actualizarStatus("Aplicando TODO " + all.size() + " cmds...");
+        final int[] aplicados = {0};
         final int[] errores = {0};
 
         ShizukuHelper.aplicarComandosAsync(this, all.toArray(new String[0]),
             new ShizukuHelper.ProgressCallback() {
                 public void onProgress(int a, int t, String c) {
+                    aplicados[0] = a;
                     actualizarStatus("Aplicando " + a + "/" + t);
                 }
                 public void onComplete(int t) {
-                    actualizarStatus("OK TODO aplicado: " + t + " cmds " + (errores[0]>0 ? "("+errores[0]+" err)" : ""));
-                    Toast.makeText(FloatingWindowService.this, "OK Todo aplicado: " + t, Toast.LENGTH_LONG).show();
+                    String r = aplicados[0] == 0
+                        ? "ERROR: 0 aplicados. Toca Diagnostico"
+                        : "OK " + aplicados[0] + "/" + t + " " + (errores[0]>0 ? "("+errores[0]+" err)" : "");
+                    actualizarStatus(r);
+                    Toast.makeText(FloatingWindowService.this, aplicados[0]+" cmds aplicados", Toast.LENGTH_LONG).show();
                 }
                 public void onError(String c, String e) { errores[0]++; }
             }, uiHandler);
     }
 
     private void calibrar() {
-        if (!ShizukuHelper.tienePermiso(this)) {
-            actualizarStatus("ERROR: Sin permiso. Toca Permiso?");
-            return;
-        }
         actualizarStatus("Analizando dispositivo...");
         SensibilidadCalibrator.ResultadoCalib r = SensibilidadCalibrator.calibrar(this);
         actualizarStatus("Aplicando: " + r.perfil);
@@ -448,7 +423,6 @@ public class FloatingWindowService extends Service {
                 actualizarStatus("Abriendo " + nombre);
             } else {
                 actualizarStatus(nombre + " no instalado");
-                Toast.makeText(this,nombre+" no instalado",Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) { Toast.makeText(this,"Error",Toast.LENGTH_SHORT).show(); }
     }
