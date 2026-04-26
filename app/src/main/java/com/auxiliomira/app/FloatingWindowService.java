@@ -24,6 +24,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -82,13 +83,13 @@ public class FloatingWindowService extends Service {
             n = new Notification.Builder(this, CHANNEL_ID)
                 .setContentTitle("AUXILIO MIRA flotante")
                 .setContentText("Activo")
-                .setSmallIcon(android.R.drawable.ic_menu_compass)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .addAction(android.R.drawable.ic_delete, "Cerrar", pi)
                 .build();
         } else {
             n = new Notification.Builder(this)
                 .setContentTitle("AUXILIO MIRA flotante")
-                .setSmallIcon(android.R.drawable.ic_menu_compass)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .build();
         }
         startForeground(1, n);
@@ -98,23 +99,31 @@ public class FloatingWindowService extends Service {
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         DisplayMetrics dm = getResources().getDisplayMetrics();
 
+        // ── BURBUJA cuadrada con icono de la app ──
+        int bSize = (int)(dm.density * 48);
         bubble = new LinearLayout(this);
         bubble.setOrientation(LinearLayout.VERTICAL);
         bubble.setGravity(Gravity.CENTER);
-        bubble.setPadding(16, 10, 16, 10);
+        bubble.setPadding(0, 0, 0, 0);
+
         GradientDrawable bgB = new GradientDrawable();
         bgB.setShape(GradientDrawable.OVAL);
         bgB.setColor(0xEECC0000);
         bgB.setStroke(3, 0xFFFFFFFF);
         bubble.setBackground(bgB);
-        TextView tvB = new TextView(this);
-        tvB.setText("AM");
-        tvB.setTextSize(11);
-        tvB.setTypeface(null, Typeface.BOLD);
-        tvB.setTextColor(Color.WHITE);
-        tvB.setGravity(Gravity.CENTER);
-        bubble.addView(tvB);
 
+        ImageView ivIcon = new ImageView(this);
+        ivIcon.setImageResource(R.mipmap.ic_launcher);
+        int iconSize = (int)(dm.density * 32);
+        LinearLayout.LayoutParams ivLp = new LinearLayout.LayoutParams(iconSize, iconSize);
+        ivIcon.setLayoutParams(ivLp);
+        ivIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        bubble.addView(ivIcon);
+
+        LinearLayout.LayoutParams bubbleLp = new LinearLayout.LayoutParams(bSize, bSize);
+        bubble.setLayoutParams(bubbleLp);
+
+        // ── PANEL ──
         panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setVisibility(View.GONE);
