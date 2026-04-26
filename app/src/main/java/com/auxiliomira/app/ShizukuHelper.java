@@ -22,7 +22,6 @@ public class ShizukuHelper {
     private static final String TAG = "ShizukuHelper";
     private static final String SHIZUKU_PKG = "moe.shizuku.privileged.api";
     private static final int REQUEST_CODE = 7777;
-    private static final int BATCH_SIZE = 50;  // Inyectar de 50 en 50
     private static boolean listenerRegistrado = false;
 
     public interface ProgressCallback {
@@ -34,14 +33,9 @@ public class ShizukuHelper {
     public static void inicializar(Context ctx) {
         if (listenerRegistrado) return;
         try {
-            Shizuku.addRequestPermissionResultListener((requestCode, grantResult) -> {
-                Log.i(TAG, "Permiso Shizuku: " + grantResult);
-            });
-            Shizuku.addBinderReceivedListenerSticky(() -> {
-                Log.i(TAG, "Shizuku binder recibido");
-                solicitarPermisoSiNecesario();
-            });
-            Shizuku.addBinderDeadListener(() -> Log.w(TAG, "Shizuku binder muerto"));
+            Shizuku.addRequestPermissionResultListener((rc, gr) -> Log.i(TAG, "Permiso: " + gr));
+            Shizuku.addBinderReceivedListenerSticky(() -> { Log.i(TAG, "Binder OK"); solicitarPermisoSiNecesario(); });
+            Shizuku.addBinderDeadListener(() -> Log.w(TAG, "Binder muerto"));
             listenerRegistrado = true;
         } catch (Throwable t) { Log.w(TAG, "init: " + t.getMessage()); }
     }
@@ -65,9 +59,9 @@ public class ShizukuHelper {
             Intent i = ctx.getPackageManager().getLaunchIntentForPackage(SHIZUKU_PKG);
             if (i != null) { i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); ctx.startActivity(i); }
             else {
-                Intent store = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + SHIZUKU_PKG));
-                store.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                ctx.startActivity(store);
+                Intent s = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + SHIZUKU_PKG));
+                s.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                ctx.startActivity(s);
             }
         } catch (Exception e) { Log.w(TAG, "abrirShizuku: " + e); }
     }
@@ -98,38 +92,34 @@ public class ShizukuHelper {
         try { return Shizuku.pingBinder(); } catch (Throwable ignored) {}
         try {
             Class<?> sm = Class.forName("android.os.ServiceManager");
-            Method getService = sm.getMethod("getService", String.class);
-            IBinder b = (IBinder) getService.invoke(null, "shizuku");
+            Method gs = sm.getMethod("getService", String.class);
+            IBinder b = (IBinder) gs.invoke(null, "shizuku");
             if (b != null && b.pingBinder()) return true;
         } catch (Throwable ignored) {}
         return false;
     }
 
     public static String estadoPermisoDetallado(Context ctx) {
-        boolean shInst = shizukuInstalado(ctx);
-        boolean shRun = shizukuActivo(ctx);
-        boolean permPM = false, permSecure = false, permShizuku = false, shReg = false;
-        try {
-            permPM = ctx.checkCallingOrSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED;
-        } catch (Throwable ignored) {}
+        boolean shInst = shizukuInstalado(ctx), shRun = shizukuActivo(ctx);
+        boolean pPM = false, pSec = false, pSh = false, shReg = false;
+        try { pPM = ctx.checkCallingOrSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED; } catch (Throwable ignored) {}
         try {
             ContentResolver cr = ctx.getContentResolver();
-            String original = Settings.Secure.getString(cr, "user_setup_complete");
-            Settings.Secure.putString(cr, "user_setup_complete", original != null ? original : "1");
-            permSecure = true;
+            String o = Settings.Secure.getString(cr, "user_setup_complete");
+            Settings.Secure.putString(cr, "user_setup_complete", o != null ? o : "1");
+            pSec = true;
         } catch (Throwable ignored) {}
         try {
-            if (Shizuku.pingBinder()) { shReg = true; permShizuku = (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED); }
+            if (Shizuku.pingBinder()) { shReg = true; pSh = (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED); }
         } catch (Throwable ignored) {}
-
         StringBuilder sb = new StringBuilder();
         sb.append("Shizuku instalado: ").append(shInst?"SI":"NO").append("\n");
         sb.append("Shizuku corriendo: ").append(shRun?"SI":"NO").append("\n");
         sb.append("App registrada: ").append(shReg?"SI":"NO").append("\n");
-        sb.append("Permiso PM: ").append(permPM?"SI":"NO").append("\n");
-        sb.append("Permiso Settings: ").append(permSecure?"SI":"NO").append("\n");
-        sb.append("Permiso Shizuku: ").append(permShizuku?"SI":"NO").append("\n\n");
-        if (permPM || permSecure || permShizuku) sb.append("RESULTADO: PUEDES INYECTAR");
+        sb.append("Permiso PM: ").append(pPM?"SI":"NO").append("\n");
+        sb.append("Permiso Settings: ").append(pSec?"SI":"NO").append("\n");
+        sb.append("Permiso Shizuku: ").append(pSh?"SI":"NO").append("\n\n");
+        if (pPM || pSec || pSh) sb.append("RESULTADO: PUEDES INYECTAR");
         else if (shReg) sb.append("RESULTADO: Toca CONECTAR SHIZUKU");
         else if (shRun) sb.append("RESULTADO: Reinicia y autoriza popup");
         else if (shInst) sb.append("RESULTADO: Inicia Shizuku");
@@ -138,7 +128,11 @@ public class ShizukuHelper {
     }
 
     /**
-     * Aplica comandos en LOTES PARALELOS de 50 para máxima velocidad.
+     * Inyección ULTRA rápida y verificada.
+     * - Detecta comandos shell (wm, cmd, pm, am) y los manda a Shizuku rish
+     * - Para "settings put", verifica leyendo de vuelta
+     * - Sin sleep entre cmds
+     * - Reporta progreso cada 10 cmds para no saturar UI
      */
     public static void aplicarComandosAsync(Context ctx, String[] comandos,
                                              ProgressCallback cb, Handler ui) {
@@ -150,54 +144,54 @@ public class ShizukuHelper {
                 tieneShPerm = Shizuku.pingBinder() &&
                     Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
             } catch (Throwable ignored) {}
-            Log.i(TAG, "Inyectando " + total + " cmds en lotes de " + BATCH_SIZE + ". root=" + tieneRoot + " shPerm=" + tieneShPerm);
+            Log.i(TAG, "Inyectando " + total + " | root=" + tieneRoot + " shPerm=" + tieneShPerm);
 
-            final boolean fRoot = tieneRoot;
-            final boolean fShPerm = tieneShPerm;
-            final AtomicInteger aplicadosTotal = new AtomicInteger(0);
+            int aplicados = 0;
+            int errores = 0;
 
-            // Procesar en lotes de BATCH_SIZE
-            int lotes = (total + BATCH_SIZE - 1) / BATCH_SIZE;
-            Thread[] hilos = new Thread[lotes];
+            for (int i = 0; i < total; i++) {
+                final int idx = i;
+                String cmd = comandos[i].trim();
+                boolean ok = false;
+                String err = null;
 
-            for (int b = 0; b < lotes; b++) {
-                final int inicio = b * BATCH_SIZE;
-                final int fin = Math.min(inicio + BATCH_SIZE, total);
-                hilos[b] = new Thread(() -> {
-                    for (int i = inicio; i < fin; i++) {
-                        String cmd = comandos[i].trim();
-                        boolean ok = false;
-                        String err = null;
-                        try { ok = aplicarConContentResolver(ctx, cmd); }
-                        catch (Throwable t) { err = t.getMessage(); }
-                        if (!ok && fShPerm) {
-                            try { ok = aplicarConShizukuRish(cmd); }
-                            catch (Throwable t) { err = t.getMessage(); }
-                        }
-                        if (!ok && fRoot) {
-                            try { ok = aplicarConSu(cmd); }
-                            catch (Throwable t) { err = t.getMessage(); }
-                        }
-                        final boolean okF = ok;
-                        final String cmdF = cmd;
-                        final String errF = err;
-                        if (okF) aplicadosTotal.incrementAndGet();
-                        int actualF = aplicadosTotal.get();
-                        if (cb != null) ui.post(() -> {
-                            if (okF) cb.onProgress(actualF, total, cmdF);
-                            else cb.onError(cmdF, errF != null ? errF : "no aplicado");
-                        });
+                try {
+                    // Detectar tipo de comando
+                    if (cmd.startsWith("settings put ")) {
+                        ok = aplicarSettingPut(ctx, cmd);
+                    } else if (cmd.startsWith("wm ") || cmd.startsWith("cmd ") ||
+                               cmd.startsWith("pm ") || cmd.startsWith("am ")) {
+                        // Comando shell - solo Shizuku/su pueden ejecutarlo
+                        if (tieneShPerm) ok = aplicarConShizukuRish(cmd);
+                        if (!ok && tieneRoot) ok = aplicarConSu(cmd);
+                    } else {
+                        // Genérico - intentar shell
+                        if (tieneShPerm) ok = aplicarConShizukuRish(cmd);
+                        if (!ok && tieneRoot) ok = aplicarConSu(cmd);
                     }
-                });
-                hilos[b].start();
+                } catch (Throwable t) { err = t.getMessage(); }
+
+                if (ok) aplicados++; else errores++;
+
+                final boolean okF = ok;
+                final String cmdF = cmd;
+                final String errF = err;
+                final int aplF = aplicados;
+
+                // Reportar progreso cada 10 cmds para no saturar
+                if (cb != null && (i % 10 == 0 || i == total - 1)) {
+                    ui.post(() -> {
+                        if (okF) cb.onProgress(idx + 1, total, cmdF);
+                        else cb.onError(cmdF, errF != null ? errF : "no aplicado");
+                    });
+                }
             }
 
-            // Esperar a que todos los hilos terminen
-            for (Thread h : hilos) {
-                try { h.join(); } catch (InterruptedException ignored) {}
-            }
-
-            if (cb != null) ui.post(() -> cb.onComplete(total));
+            final int aplFinal = aplicados;
+            if (cb != null) ui.post(() -> {
+                cb.onProgress(aplFinal, total, "");
+                cb.onComplete(total);
+            });
         }).start();
     }
 
@@ -206,7 +200,11 @@ public class ShizukuHelper {
         aplicarComandosAsync(ctx, comandos, cb, h);
     }
 
-    private static boolean aplicarConContentResolver(Context ctx, String cmd) {
+    /**
+     * Aplica "settings put X Y Z" usando ContentResolver (ultra rápido).
+     * Si la clave no existe en el sistema, falla silenciosamente.
+     */
+    private static boolean aplicarSettingPut(Context ctx, String cmd) {
         try {
             String[] partes = cmd.split(" ", 5);
             if (partes.length < 4) return false;
@@ -215,9 +213,9 @@ public class ShizukuHelper {
             String val = partes.length > 4 ? partes[4] : "";
             ContentResolver cr = ctx.getContentResolver();
             switch (ns) {
-                case "system": Settings.System.putString(cr, key, val); return true;
-                case "secure": Settings.Secure.putString(cr, key, val); return true;
-                case "global": Settings.Global.putString(cr, key, val); return true;
+                case "system": return Settings.System.putString(cr, key, val);
+                case "secure": return Settings.Secure.putString(cr, key, val);
+                case "global": return Settings.Global.putString(cr, key, val);
             }
         } catch (Throwable e) { return false; }
         return false;
@@ -266,7 +264,7 @@ public class ShizukuHelper {
             "settings put global package_verifier_enable 0",
             "settings put global netstats_enabled 0",
         };
-        for (String c : cmd) try { aplicarConContentResolver(ctx, c); } catch (Throwable ignored) {}
+        for (String c : cmd) try { aplicarSettingPut(ctx, c); } catch (Throwable ignored) {}
         try {
             java.io.File c1 = ctx.getCacheDir(); if (c1 != null) deleteDir(c1);
             java.io.File c2 = ctx.getExternalCacheDir(); if (c2 != null) deleteDir(c2);

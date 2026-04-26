@@ -2,7 +2,7 @@ package com.auxiliomira.app;
 
 public class AllCommands {
 
-    // 👆 Velocidad del Puntero (250 cmds) ════════════════════════
+    // Velocidad del Puntero (250 cmds)
     public static final String[] CMDS_TOUCH_POINTER = {
         "settings put system pointer_speed 7",
         "settings put system long_press_timeout 300",
@@ -256,7 +256,7 @@ public class AllCommands {
         "settings put system touch_zone_79_sensitivity 8",
     };
 
-    // 🌀 Giroscopio Pro (268 cmds) ════════════════════════
+    // Giroscopio Pro (268 cmds)
     public static final String[] CMDS_GYRO_SENSOR = {
         "settings put system accelerometer_rotation 1",
         "settings put system gyroscope_sensitivity 8",
@@ -528,7 +528,7 @@ public class AllCommands {
         "settings put system gyro_axis_99_scale 1",
     };
 
-    // 🖥️ FPS y Pantalla Max (309 cmds) ════════════════════════
+    // FPS y Pantalla Max (309 cmds)
     public static final String[] CMDS_FPS_PANTALLA = {
         "settings put global window_animation_scale 0.5",
         "settings put global transition_animation_scale 0.5",
@@ -841,7 +841,7 @@ public class AllCommands {
         "settings put global gpu_pipeline_119_boost 1",
     };
 
-    // ⚡ Rendimiento CPU/RAM (192 cmds) ════════════════════════
+    // Rendimiento CPU/RAM (192 cmds)
     public static final String[] CMDS_RENDIMIENTO_CPU = {
         "settings put global always_finish_activities 0",
         "settings put global battery_saver_enabled 0",
@@ -1037,7 +1037,7 @@ public class AllCommands {
         "settings put global process_pool_59_size 32",
     };
 
-    // 🌐 Red y Anti-Lag (233 cmds) ════════════════════════
+    // Red y Anti-Lag (233 cmds)
     public static final String[] CMDS_RED_LATENCIA = {
         "settings put global wifi_aggressive_handover 1",
         "settings put global wifi_idle_ms 0",
@@ -1274,7 +1274,7 @@ public class AllCommands {
         "settings put global tcp_socket_99_buffer 65536",
     };
 
-    // ♿ Talkback OFF (74 cmds) ════════════════════════
+    // Talkback OFF (74 cmds)
     public static final String[] CMDS_TALKBACK = {
         "settings put secure accessibility_enabled 0",
         "settings put secure touch_exploration_enabled 0",
@@ -1352,7 +1352,7 @@ public class AllCommands {
         "settings put secure accessibility_service_49_enabled 0",
     };
 
-    // 🔋 Anti-Thermal (81 cmds) ════════════════════════
+    // Anti-Thermal (81 cmds)
     public static final String[] CMDS_BATERIA = {
         "settings put global automatic_power_save_mode 0",
         "settings put global battery_saver_enabled 0",
@@ -1437,7 +1437,7 @@ public class AllCommands {
         "settings put global thermal_zone_59_threshold 85",
     };
 
-    // 🔊 Audio (70 cmds) ════════════════════════
+    // Audio (70 cmds)
     public static final String[] CMDS_AUDIO = {
         "settings put system haptic_feedback_enabled 0",
         "settings put system vibrate_when_ringing 0",
@@ -1511,7 +1511,7 @@ public class AllCommands {
         "settings put system audio_stream_49_priority 1",
     };
 
-    // 🔵 Mod Media (11 cmds) ════════════════════════
+    // Mod Media (11 cmds)
     public static final String[] CMDS_MODS_MEDIA = {
         "settings put system display_color_mode 258",
         "settings put system display_color_blue_boost 1",
@@ -1526,9 +1526,9 @@ public class AllCommands {
         "settings put system cursor_no_blink 1",
     };
 
-    // 🎯 Calibración Base (6 cmds) ════════════════════════
+    // Calibracion Base (6 cmds)
     public static final String[] CMDS_CALIBRACION = {
-        "settings put system pointer_speed 7",
+        "settings put system pointer_speed 5",
         "settings put system gyroscope_sensitivity 5",
         "settings put system touch_sensitivity_level 8",
         "settings put system touch_report_rate 240",
@@ -1536,7 +1536,7 @@ public class AllCommands {
         "settings put system gyro_sample_rate 200",
     };
 
-    // 📜 Scroll Pro (189 cmds) ════════════════════════
+    // Scroll Pro (189 cmds)
     public static final String[] CMDS_SCROLL = {
         "settings put system scroll_friction 0.008",
         "settings put system fling_velocity 10000",
@@ -1729,7 +1729,7 @@ public class AllCommands {
         "settings put system scroll_zone_79_friction 0.01",
     };
 
-    // 🎯 Anti-Recoil (190 cmds) ════════════════════════
+    // Anti-Recoil (190 cmds)
     public static final String[] CMDS_ANTIRECOIL = {
         "settings put system gyro_recoil_compensation 1",
         "settings put system gyro_recoil_threshold 0.5",
@@ -1923,30 +1923,25 @@ public class AllCommands {
         "settings put system recoil_strength_zone_79 0.7",
     };
 
-    // 📺 Resolución Estirada (22 cmds) ════════════════════════
+    // Resolucion Estirada (3 cmds shell - requieren Shizuku)
+    // wm size: cambia la resolucion virtual
+    // wm density: cambia la densidad
+    // 720x1600 da una pantalla mas ancha en relacion al alto
     public static final String[] CMDS_RESOLUCION = {
-        "settings put system display_size_forced ",
-        "settings put global display_density_forced 0",
+        "wm size 720x1600",
+        "wm density 380",
         "settings put system display_aspect_ratio_force 21:9",
-        "settings put system display_stretch_mode 1",
-        "settings put system display_stretch_factor_x 1.15",
-        "settings put system display_stretch_factor_y 1.0",
         "settings put system display_widescreen_mode 1",
-        "settings put system display_zoom_factor 1.1",
-        "settings put system game_aspect_ratio_force 1",
         "settings put system game_full_screen 1",
-        "settings put system game_screen_width_extend 1.15",
-        "settings put system game_screen_height_keep 1.0",
-        "settings put system display_safe_stretch 1",
-        "settings put system display_revertable 1",
-        "settings put system ff_widescreen_mode 1",
-        "settings put system ff_aspect_force 21:9",
-        "settings put system ff_horizontal_stretch 1.15",
         "settings put system game_immersive_mode 1",
         "settings put system display_cutout_mode 2",
         "settings put global force_high_resolution 1",
-        "settings put system display_render_resolution 1080",
-        "settings put system display_pixel_format 565",
+    };
+
+    // Restaurar resolucion original (3 cmds shell)
+    public static final String[] CMDS_RESOLUCION_RESET = {
+        "wm size reset",
+        "wm density reset",
     };
 
 }
