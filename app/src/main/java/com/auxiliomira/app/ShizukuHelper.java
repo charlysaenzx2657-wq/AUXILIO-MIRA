@@ -29,10 +29,6 @@ public class ShizukuHelper {
         void onError(String cmd, String error);
     }
 
-    /**
-     * Inicializa Shizuku — registra listeners para que Shizuku sepa de la app
-     * y le otorgue permiso. Llamar al iniciar la app (en LoginActivity o MainActivity).
-     */
     public static void inicializar(Context ctx) {
         if (listenerRegistrado) return;
         try {
@@ -52,23 +48,11 @@ public class ShizukuHelper {
         }
     }
 
-    /**
-     * Solicita el permiso de Shizuku al usuario (popup en Shizuku).
-     */
     public static void solicitarPermisoSiNecesario() {
         try {
-            if (Shizuku.isPreV11()) {
-                Log.w(TAG, "Shizuku version muy antigua");
-                return;
-            }
-            if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
-                Log.i(TAG, "Ya tiene permiso Shizuku");
-                return;
-            }
-            if (Shizuku.shouldShowRequestPermissionRationale()) {
-                Log.w(TAG, "Usuario rechazo permiso Shizuku");
-                return;
-            }
+            if (Shizuku.isPreV11()) return;
+            if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) return;
+            if (Shizuku.shouldShowRequestPermissionRationale()) return;
             Shizuku.requestPermission(REQUEST_CODE);
         } catch (Throwable t) {
             Log.w(TAG, "solicitarPermiso: " + t.getMessage());
@@ -100,19 +84,16 @@ public class ShizukuHelper {
     }
 
     public static boolean tienePermiso(Context ctx) {
-        // 1) Vía Shizuku SDK (lo más confiable)
         try {
             if (Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
                 return true;
             }
         } catch (Throwable ignored) {}
-        // 2) Via PackageManager
         try {
             int result = ctx.checkCallingOrSelfPermission(
                 "android.permission.WRITE_SECURE_SETTINGS");
             if (result == PackageManager.PERMISSION_GRANTED) return true;
         } catch (Throwable ignored) {}
-        // 3) Escritura de prueba
         try {
             ContentResolver cr = ctx.getContentResolver();
             String original = Settings.Secure.getString(cr, "user_setup_complete");
@@ -217,7 +198,7 @@ public class ShizukuHelper {
                 catch (Throwable t) { err = t.getMessage(); }
 
                 if (!ok && tieneShizukuPerm) {
-                    try { ok = aplicarConShizukuApi(cmd); }
+                    try { ok = aplicarConShizukuRish(cmd); }
                     catch (Throwable t) { err = t.getMessage(); }
                 }
 
@@ -275,17 +256,32 @@ public class ShizukuHelper {
     }
 
     /**
-     * Ejecuta comando vía Shizuku.newProcess (API oficial).
+     * Ejecuta comando vía rish (binario que Shizuku instala en /data/local/tmp).
+     * Si Shizuku está corriendo y autorizado, rish funciona automáticamente.
      */
-    private static boolean aplicarConShizukuApi(String cmd) {
+    private static boolean aplicarConShizukuRish(String cmd) {
+        // Método 1: rish directo
         try {
-            Process p = Shizuku.newProcess(new String[]{"sh", "-c", cmd}, null, null);
-            int exit = p.waitFor();
-            return exit == 0;
-        } catch (Throwable t) {
-            Log.w(TAG, "shizukuApi: " + t.getMessage());
-            return false;
-        }
+            Process p = Runtime.getRuntime().exec(new String[]{"sh","-c","rish -c \"" + cmd + "\" 2>&1"});
+            p.waitFor();
+            if (p.exitValue() == 0) return true;
+        } catch (Exception ignored) {}
+
+        // Método 2: via reflection (newProcess es privado, pero accesible por reflexión)
+        try {
+            Method newProcess = Shizuku.class.getDeclaredMethod("newProcess",
+                String[].class, String[].class, String.class);
+            newProcess.setAccessible(true);
+            String[] args = {"sh", "-c", cmd};
+            Object proc = newProcess.invoke(null, args, null, null);
+            if (proc != null) {
+                Method waitFor = proc.getClass().getMethod("waitFor");
+                Object exitCode = waitFor.invoke(proc);
+                return exitCode instanceof Integer && (Integer) exitCode == 0;
+            }
+        } catch (Exception ignored) {}
+
+        return false;
     }
 
     public static void limpiarCache(Context ctx) {
