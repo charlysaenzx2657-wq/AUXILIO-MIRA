@@ -53,6 +53,13 @@ public class MainActivity extends Activity {
         }
         NotifHelper.crearCanales(this);
 
+        // Inicializar Shizuku — esto registra la app en Shizuku
+        // y dispara el popup de autorización si no se ha autorizado
+        try {
+            ShizukuHelper.inicializar(this);
+            ShizukuHelper.solicitarPermisoSiNecesario();
+        } catch (Throwable t) { Log.w(TAG, "Shizuku init: " + t.getMessage()); }
+
         modulos.add(new Modulo("👆 Velocidad del Puntero", "Optimiza touch y velocidad",  AllCommands.CMDS_TOUCH_POINTER));
         modulos.add(new Modulo("🌀 Giroscopio Pro",         "Calibra giroscopio",          AllCommands.CMDS_GYRO_SENSOR));
         modulos.add(new Modulo("🖥️ FPS y Pantalla Max",     "Maximiza FPS y GPU",          AllCommands.CMDS_FPS_PANTALLA));
