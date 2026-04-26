@@ -6,7 +6,6 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.Typeface;
@@ -15,7 +14,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
@@ -41,6 +39,7 @@ public class FloatingWindowService extends Service {
     private View floatingRoot;
     private LinearLayout bubble;
     private LinearLayout panel;
+    private TextView tvStatus;        // mensajes de estado dentro del panel
     private boolean expandido = false;
     private WindowManager.LayoutParams params;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
@@ -99,7 +98,7 @@ public class FloatingWindowService extends Service {
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         DisplayMetrics dm = getResources().getDisplayMetrics();
 
-        // ── BURBUJA cuadrada con icono de la app ──
+        // ── BURBUJA cuadrada con icono ──
         int bSize = (int)(dm.density * 48);
         bubble = new LinearLayout(this);
         bubble.setOrientation(LinearLayout.VERTICAL);
@@ -123,7 +122,7 @@ public class FloatingWindowService extends Service {
         LinearLayout.LayoutParams bubbleLp = new LinearLayout.LayoutParams(bSize, bSize);
         bubble.setLayoutParams(bubbleLp);
 
-        // ── PANEL ──
+        // ── PANEL HORIZONTAL (acostado) ──
         panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setVisibility(View.GONE);
@@ -132,8 +131,9 @@ public class FloatingWindowService extends Service {
         bgP.setStroke(2, 0xFFFF0000);
         bgP.setCornerRadius(14);
         panel.setBackground(bgP);
-        panel.setPadding(10, 10, 10, 10);
+        panel.setPadding(8, 8, 8, 8);
 
+        // Título
         TextView tvT = new TextView(this);
         tvT.setText("AUXILIO MIRA");
         tvT.setTextSize(11);
@@ -142,75 +142,114 @@ public class FloatingWindowService extends Service {
         tvT.setGravity(Gravity.CENTER);
         panel.addView(tvT);
 
-        ScrollView sv = new ScrollView(this);
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(4, 6, 4, 6);
+        // ── Status bar (avisos de aplicación) ──
+        tvStatus = new TextView(this);
+        tvStatus.setText("Selecciona modulos");
+        tvStatus.setTextSize(9);
+        tvStatus.setTextColor(0xFFAAAAAA);
+        tvStatus.setGravity(Gravity.CENTER);
+        tvStatus.setPadding(0, 4, 0, 4);
+        tvStatus.setBackgroundColor(0xFF1A0000);
+        panel.addView(tvStatus);
 
-        TextView tvSel = tv("Selecciona modulos:", 9, 0xFFFF6600);
-        content.addView(tvSel);
+        // ── Layout de 2 COLUMNAS lado a lado ──
+        LinearLayout twoCols = new LinearLayout(this);
+        twoCols.setOrientation(LinearLayout.HORIZONTAL);
+
+        // Col izquierda: módulos en scroll
+        ScrollView svLeft = new ScrollView(this);
+        LinearLayout colLeft = new LinearLayout(this);
+        colLeft.setOrientation(LinearLayout.VERTICAL);
+        colLeft.setPadding(4, 6, 4, 6);
+
+        TextView tvSel = tv("Modulos:", 9, 0xFFFF6600);
+        colLeft.addView(tvSel);
 
         cbTouch  = cb("Puntero (" + AllCommands.CMDS_TOUCH_POINTER.length + ")");
-        cbGyro   = cb("Giroscopio (" + AllCommands.CMDS_GYRO_SENSOR.length + ")");
-        cbFps    = cb("FPS Max (" + AllCommands.CMDS_FPS_PANTALLA.length + ")");
+        cbGyro   = cb("Giro (" + AllCommands.CMDS_GYRO_SENSOR.length + ")");
+        cbFps    = cb("FPS (" + AllCommands.CMDS_FPS_PANTALLA.length + ")");
         cbCpu    = cb("CPU/RAM (" + AllCommands.CMDS_RENDIMIENTO_CPU.length + ")");
         cbRed    = cb("Anti-Lag (" + AllCommands.CMDS_RED_LATENCIA.length + ")");
-        cbTalk   = cb("Talkback OFF (" + AllCommands.CMDS_TALKBACK.length + ")");
-        cbBat    = cb("Anti-Thermal (" + AllCommands.CMDS_BATERIA.length + ")");
+        cbTalk   = cb("Talk OFF (" + AllCommands.CMDS_TALKBACK.length + ")");
+        cbBat    = cb("Anti-Therm (" + AllCommands.CMDS_BATERIA.length + ")");
         cbAudio  = cb("Audio (" + AllCommands.CMDS_AUDIO.length + ")");
-        cbMedia  = cb("Mod Media (" + AllCommands.CMDS_MODS_MEDIA.length + ")");
+        cbMedia  = cb("Media (" + AllCommands.CMDS_MODS_MEDIA.length + ")");
         cbScroll = cb("Scroll (" + AllCommands.CMDS_SCROLL.length + ")");
         cbRecoil = cb("Anti-Recoil (" + AllCommands.CMDS_ANTIRECOIL.length + ")");
 
-        content.addView(cbTouch); content.addView(cbGyro); content.addView(cbFps);
-        content.addView(cbCpu); content.addView(cbRed); content.addView(cbTalk);
-        content.addView(cbBat); content.addView(cbAudio); content.addView(cbMedia);
-        content.addView(cbScroll); content.addView(cbRecoil);
+        colLeft.addView(cbTouch); colLeft.addView(cbGyro); colLeft.addView(cbFps);
+        colLeft.addView(cbCpu); colLeft.addView(cbRed); colLeft.addView(cbTalk);
+        colLeft.addView(cbBat); colLeft.addView(cbAudio); colLeft.addView(cbMedia);
+        colLeft.addView(cbScroll); colLeft.addView(cbRecoil);
 
-        content.addView(sep());
+        svLeft.addView(colLeft);
+        LinearLayout.LayoutParams lpLeft = new LinearLayout.LayoutParams(0, -1, 1.2f);
+        lpLeft.setMargins(0, 0, 4, 0);
+        svLeft.setLayoutParams(lpLeft);
 
-        Button btnApl = btnV("APLICAR SELECCION", 0xFFCC0000, 0xFFFFFFFF);
+        // Col derecha: botones acción
+        ScrollView svRight = new ScrollView(this);
+        LinearLayout colRight = new LinearLayout(this);
+        colRight.setOrientation(LinearLayout.VERTICAL);
+        colRight.setPadding(4, 6, 4, 6);
+
+        TextView tvAcc = tv("Acciones:", 9, 0xFFFF6600);
+        colRight.addView(tvAcc);
+
+        Button btnApl = btnV("APLICAR", 0xFFCC0000, 0xFFFFFFFF);
         btnApl.setOnClickListener(v -> aplicarSeleccionados());
-        content.addView(btnApl);
+        colRight.addView(btnApl);
 
-        Button btnTodo = btnV("APLICAR TODO", 0xFF880000, 0xFFFFFFFF);
+        Button btnTodo = btnV("TODO", 0xFF880000, 0xFFFFFFFF);
         btnTodo.setOnClickListener(v -> aplicarTodo());
-        content.addView(btnTodo);
+        colRight.addView(btnTodo);
 
-        content.addView(sep());
+        colRight.addView(sep());
 
-        Button btnCal = btnV("Calibrar Sensi", 0xFF001A33, 0xFF00AAFF);
+        Button btnCal = btnV("Calibrar", 0xFF001A33, 0xFF00AAFF);
         btnCal.setOnClickListener(v -> calibrar());
-        content.addView(btnCal);
+        colRight.addView(btnCal);
 
-        Button btnCache = btnV("Limpiar Cache", 0xFF1A1A00, 0xFFFFFF00);
+        Button btnCache = btnV("Cache", 0xFF1A1A00, 0xFFFFFF00);
         btnCache.setOnClickListener(v -> {
+            actualizarStatus("Limpiando cache...");
             ShizukuHelper.limpiarCache(this);
+            actualizarStatus("OK Cache limpiado");
             Toast.makeText(this, "Cache limpiado", Toast.LENGTH_SHORT).show();
         });
-        content.addView(btnCache);
+        colRight.addView(btnCache);
 
-        content.addView(sep());
+        Button btnPerm = btnV("Permiso?", 0xFF0A001A, 0xFFCC88FF);
+        btnPerm.setOnClickListener(v -> verificarPermiso());
+        colRight.addView(btnPerm);
+
+        colRight.addView(sep());
 
         Button btnFF = btnV("Free Fire", 0xFF1A0000, 0xFFFF4400);
         btnFF.setOnClickListener(v -> abrirJuego("com.dts.freefireth", "Free Fire"));
-        content.addView(btnFF);
+        colRight.addView(btnFF);
 
         Button btnFFM = btnV("FF MAX", 0xFF1A0A00, 0xFFFF8800);
         btnFFM.setOnClickListener(v -> abrirJuego("com.dts.freefiremax", "Free Fire MAX"));
-        content.addView(btnFFM);
+        colRight.addView(btnFFM);
 
-        content.addView(sep());
+        colRight.addView(sep());
 
         Button btnClose = btnV("Cerrar", 0xFF1A1A1A, 0xFF888888);
         btnClose.setOnClickListener(v -> stopSelf());
-        content.addView(btnClose);
+        colRight.addView(btnClose);
 
-        sv.addView(content);
+        svRight.addView(colRight);
+        LinearLayout.LayoutParams lpRight = new LinearLayout.LayoutParams(0, -1, 1f);
+        svRight.setLayoutParams(lpRight);
 
-        int maxH = (int)(dm.heightPixels * 0.55f);
-        sv.setLayoutParams(new LinearLayout.LayoutParams(-1, maxH));
-        panel.addView(sv);
+        twoCols.addView(svLeft);
+        twoCols.addView(svRight);
+
+        // Altura del área scrollable - tipo "tabla" media
+        int panelH = (int)(dm.heightPixels * 0.42f);
+        twoCols.setLayoutParams(new LinearLayout.LayoutParams(-1, panelH));
+        panel.addView(twoCols);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -222,8 +261,9 @@ public class FloatingWindowService extends Service {
             ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             : WindowManager.LayoutParams.TYPE_PHONE;
 
+        // Ancho 78% de pantalla = "acostado" tipo tabla
         params = new WindowManager.LayoutParams(
-            (int)(dm.widthPixels * 0.52f),
+            (int)(dm.widthPixels * 0.78f),
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
@@ -269,26 +309,78 @@ public class FloatingWindowService extends Service {
         panel.setVisibility(expandido ? View.VISIBLE : View.GONE);
     }
 
+    private void actualizarStatus(String msg) {
+        uiHandler.post(() -> {
+            if (tvStatus != null) tvStatus.setText(msg);
+        });
+    }
+
+    private void verificarPermiso() {
+        boolean tienePermiso = ShizukuHelper.tienePermiso(this);
+        boolean shizukuActivo = ShizukuHelper.shizukuActivo(this);
+        boolean shizukuInstalado = ShizukuHelper.shizukuInstalado(this);
+
+        String msg;
+        if (tienePermiso) {
+            msg = "OK Permiso ACTIVO - puedes inyectar";
+            tvStatus.setTextColor(0xFF00FF00);
+        } else if (shizukuActivo) {
+            msg = "Shizuku activo, falta autorizar la app";
+            tvStatus.setTextColor(0xFFFFAA00);
+        } else if (shizukuInstalado) {
+            msg = "Shizuku instalado pero NO corriendo";
+            tvStatus.setTextColor(0xFFFF6600);
+        } else {
+            msg = "Shizuku NO instalado";
+            tvStatus.setTextColor(0xFFFF0000);
+        }
+        tvStatus.setText(msg);
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+    }
+
     private void aplicarSeleccionados() {
         List<String> lista = new ArrayList<>();
-        if (cbTouch.isChecked())  for (String c:AllCommands.CMDS_TOUCH_POINTER) lista.add(c);
-        if (cbGyro.isChecked())   for (String c:AllCommands.CMDS_GYRO_SENSOR) lista.add(c);
-        if (cbFps.isChecked())    for (String c:AllCommands.CMDS_FPS_PANTALLA) lista.add(c);
-        if (cbCpu.isChecked())    for (String c:AllCommands.CMDS_RENDIMIENTO_CPU) lista.add(c);
-        if (cbRed.isChecked())    for (String c:AllCommands.CMDS_RED_LATENCIA) lista.add(c);
-        if (cbTalk.isChecked())   for (String c:AllCommands.CMDS_TALKBACK) lista.add(c);
-        if (cbBat.isChecked())    for (String c:AllCommands.CMDS_BATERIA) lista.add(c);
-        if (cbAudio.isChecked())  for (String c:AllCommands.CMDS_AUDIO) lista.add(c);
-        if (cbMedia.isChecked())  for (String c:AllCommands.CMDS_MODS_MEDIA) lista.add(c);
-        if (cbScroll.isChecked()) for (String c:AllCommands.CMDS_SCROLL) lista.add(c);
-        if (cbRecoil.isChecked()) for (String c:AllCommands.CMDS_ANTIRECOIL) lista.add(c);
-        if (lista.isEmpty()) { Toast.makeText(this,"Selecciona al menos uno",Toast.LENGTH_SHORT).show(); return; }
-        Toast.makeText(this,"Aplicando "+lista.size()+" cmds",Toast.LENGTH_SHORT).show();
+        StringBuilder modulosSel = new StringBuilder();
+        if (cbTouch.isChecked())  { for (String c:AllCommands.CMDS_TOUCH_POINTER) lista.add(c); modulosSel.append("Puntero "); }
+        if (cbGyro.isChecked())   { for (String c:AllCommands.CMDS_GYRO_SENSOR) lista.add(c); modulosSel.append("Giro "); }
+        if (cbFps.isChecked())    { for (String c:AllCommands.CMDS_FPS_PANTALLA) lista.add(c); modulosSel.append("FPS "); }
+        if (cbCpu.isChecked())    { for (String c:AllCommands.CMDS_RENDIMIENTO_CPU) lista.add(c); modulosSel.append("CPU "); }
+        if (cbRed.isChecked())    { for (String c:AllCommands.CMDS_RED_LATENCIA) lista.add(c); modulosSel.append("Red "); }
+        if (cbTalk.isChecked())   { for (String c:AllCommands.CMDS_TALKBACK) lista.add(c); modulosSel.append("Talk "); }
+        if (cbBat.isChecked())    { for (String c:AllCommands.CMDS_BATERIA) lista.add(c); modulosSel.append("Bat "); }
+        if (cbAudio.isChecked())  { for (String c:AllCommands.CMDS_AUDIO) lista.add(c); modulosSel.append("Audio "); }
+        if (cbMedia.isChecked())  { for (String c:AllCommands.CMDS_MODS_MEDIA) lista.add(c); modulosSel.append("Media "); }
+        if (cbScroll.isChecked()) { for (String c:AllCommands.CMDS_SCROLL) lista.add(c); modulosSel.append("Scroll "); }
+        if (cbRecoil.isChecked()) { for (String c:AllCommands.CMDS_ANTIRECOIL) lista.add(c); modulosSel.append("Recoil "); }
+
+        if (lista.isEmpty()) {
+            actualizarStatus("Selecciona al menos uno");
+            Toast.makeText(this,"Selecciona al menos uno",Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!ShizukuHelper.tienePermiso(this)) {
+            actualizarStatus("ERROR: Sin permiso. Toca Permiso?");
+            Toast.makeText(this,"Sin permiso. Activa Shizuku",Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        actualizarStatus("Aplicando " + lista.size() + " cmds...");
+        final int[] aplicados = {0};
+        final int[] errores = {0};
+
         ShizukuHelper.aplicarComandosAsync(this, lista.toArray(new String[0]),
             new ShizukuHelper.ProgressCallback() {
-                public void onProgress(int a, int t, String c) {}
-                public void onComplete(int t) { Toast.makeText(FloatingWindowService.this,t+" cmds aplicados",Toast.LENGTH_SHORT).show(); }
-                public void onError(String c, String e) {}
+                public void onProgress(int a, int t, String c) {
+                    aplicados[0] = a;
+                    actualizarStatus("Aplicando " + a + "/" + t);
+                }
+                public void onComplete(int t) {
+                    String resumen = "OK " + aplicados[0] + "/" + t + " aplicados " + (errores[0]>0 ? "("+errores[0]+" err)" : "") + " - " + modulosSel.toString();
+                    actualizarStatus(resumen);
+                    Toast.makeText(FloatingWindowService.this, "OK " + aplicados[0] + " cmds aplicados", Toast.LENGTH_LONG).show();
+                }
+                public void onError(String c, String e) { errores[0]++; }
             }, uiHandler);
     }
 
@@ -305,22 +397,44 @@ public class FloatingWindowService extends Service {
         for (String c:AllCommands.CMDS_MODS_MEDIA) all.add(c);
         for (String c:AllCommands.CMDS_SCROLL) all.add(c);
         for (String c:AllCommands.CMDS_ANTIRECOIL) all.add(c);
-        Toast.makeText(this,"Aplicando todo...",Toast.LENGTH_SHORT).show();
+
+        if (!ShizukuHelper.tienePermiso(this)) {
+            actualizarStatus("ERROR: Sin permiso. Toca Permiso?");
+            Toast.makeText(this, "Sin permiso. Activa Shizuku", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        actualizarStatus("Aplicando TODO " + all.size() + " cmds...");
+        final int[] errores = {0};
+
         ShizukuHelper.aplicarComandosAsync(this, all.toArray(new String[0]),
             new ShizukuHelper.ProgressCallback() {
-                public void onProgress(int a, int t, String c) {}
-                public void onComplete(int t) { Toast.makeText(FloatingWindowService.this,"Todo aplicado: "+t,Toast.LENGTH_SHORT).show(); }
-                public void onError(String c, String e) {}
+                public void onProgress(int a, int t, String c) {
+                    actualizarStatus("Aplicando " + a + "/" + t);
+                }
+                public void onComplete(int t) {
+                    actualizarStatus("OK TODO aplicado: " + t + " cmds " + (errores[0]>0 ? "("+errores[0]+" err)" : ""));
+                    Toast.makeText(FloatingWindowService.this, "OK Todo aplicado: " + t, Toast.LENGTH_LONG).show();
+                }
+                public void onError(String c, String e) { errores[0]++; }
             }, uiHandler);
     }
 
     private void calibrar() {
+        if (!ShizukuHelper.tienePermiso(this)) {
+            actualizarStatus("ERROR: Sin permiso. Toca Permiso?");
+            return;
+        }
+        actualizarStatus("Analizando dispositivo...");
         SensibilidadCalibrator.ResultadoCalib r = SensibilidadCalibrator.calibrar(this);
-        Toast.makeText(this,r.perfil,Toast.LENGTH_SHORT).show();
+        actualizarStatus("Aplicando: " + r.perfil);
         ShizukuHelper.aplicarComandosAsync(this, r.comandos.toArray(new String[0]),
             new ShizukuHelper.ProgressCallback() {
-                public void onProgress(int a, int t, String c) {}
-                public void onComplete(int t) { Toast.makeText(FloatingWindowService.this,"Calibracion lista",Toast.LENGTH_SHORT).show(); }
+                public void onProgress(int a, int t, String c) { actualizarStatus("Calibrando " + a + "/" + t); }
+                public void onComplete(int t) {
+                    actualizarStatus("OK Calibracion: " + r.perfil);
+                    Toast.makeText(FloatingWindowService.this, "OK Calibracion lista", Toast.LENGTH_LONG).show();
+                }
                 public void onError(String c, String e) {}
             }, uiHandler);
     }
@@ -328,8 +442,14 @@ public class FloatingWindowService extends Service {
     private void abrirJuego(String pkg, String nombre) {
         try {
             Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
-            if (i != null) { i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(i); }
-            else Toast.makeText(this,nombre+" no instalado",Toast.LENGTH_SHORT).show();
+            if (i != null) {
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+                actualizarStatus("Abriendo " + nombre);
+            } else {
+                actualizarStatus(nombre + " no instalado");
+                Toast.makeText(this,nombre+" no instalado",Toast.LENGTH_SHORT).show();
+            }
         } catch (Exception e) { Toast.makeText(this,"Error",Toast.LENGTH_SHORT).show(); }
     }
 
@@ -342,8 +462,9 @@ public class FloatingWindowService extends Service {
     }
     private CheckBox cb(String t) {
         CheckBox c = new CheckBox(this);
-        c.setText(t); c.setTextSize(9); c.setTextColor(0xFFDDDDDD);
+        c.setText(t); c.setTextSize(8); c.setTextColor(0xFFDDDDDD);
         c.setButtonTintList(android.content.res.ColorStateList.valueOf(0xFFFF4400));
+        c.setPadding(2, 0, 0, 0);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,-2);
         lp.setMargins(0,1,0,1); c.setLayoutParams(lp);
         return c;
@@ -351,16 +472,16 @@ public class FloatingWindowService extends Service {
     private Button btnV(String t, int bg, int fg) {
         Button b = new Button(this);
         b.setText(t); b.setTextSize(9); b.setTextColor(fg); b.setBackgroundColor(bg);
-        b.setPadding(0,10,0,10);
+        b.setPadding(0,8,0,8);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,-2);
-        lp.setMargins(0,3,0,3); b.setLayoutParams(lp);
+        lp.setMargins(0,2,0,2); b.setLayoutParams(lp);
         return b;
     }
     private View sep() {
         View v = new View(this);
         v.setBackgroundColor(0xFF330000);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,1);
-        lp.setMargins(0,5,0,5); v.setLayoutParams(lp);
+        lp.setMargins(0,4,0,4); v.setLayoutParams(lp);
         return v;
     }
 
