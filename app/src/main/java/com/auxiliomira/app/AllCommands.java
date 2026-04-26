@@ -2,10 +2,7 @@ package com.auxiliomira.app;
 
 public class AllCommands {
 
-    // ═══════════════════════════════════════════════
-    // 👆 Velocidad del Puntero (270 cmds)
-    // Optimiza touch, sensibilidad y velocidad del dedo
-    // ═══════════════════════════════════════════════
+    // 👆 Velocidad del Puntero (250 cmds) ════════════════════════
     public static final String[] CMDS_TOUCH_POINTER = {
         "settings put system pointer_speed 7",
         "settings put system long_press_timeout 300",
@@ -41,11 +38,8 @@ public class AllCommands {
         "settings put system pointer_icon_style 0",
         "settings put system fling_deceleration 0.015",
         "settings put system touch_min_swipe_speed 100",
-        "settings put system touch_block_velocity 0",
         "settings put system touch_size_scale 1.0",
-        "settings put system touch_size_bias 0",
         "settings put system touch_pressure_scale 1.0",
-        "settings put system touch_gesture_mode 0",
         "settings put system touch_orientation_calibration interpolated",
         "settings put system touch_pressure_calibration amplitude",
         "settings put system input_raw_events 0",
@@ -53,7 +47,7 @@ public class AllCommands {
         "settings put system touch_latency_reduction 1",
         "settings put system touch_report_rate 240",
         "settings put system touch_boost_enabled 1",
-        "settings put system touch_sensitivity_level 10",
+        "settings put system touch_sensitivity_level 8",
         "settings put system touch_anti_interference 1",
         "settings put system touch_palm_rejection 1",
         "settings put system touch_game_mode 1",
@@ -61,28 +55,21 @@ public class AllCommands {
         "settings put system touch_noise_reduction 1",
         "settings put system touch_jitter_filter 1",
         "settings put system touch_velocity_tracker_strategy 1",
-        "settings put system touch_overscan_left 0",
-        "settings put system touch_overscan_top 0",
-        "settings put system touch_overscan_right 0",
-        "settings put system touch_overscan_bottom 0",
         "settings put system touch_sampling_rate 240",
         "settings put system touch_interpolation 1",
         "settings put system touch_extrapolation 1",
         "settings put system pointer_acceleration 0",
         "settings put system pointer_deceleration 0",
-        "settings put system touch_hysteresis 0",
         "settings put system touch_distance_threshold 8",
         "settings put system touch_velocity_threshold 50",
-        "settings put system touch_angle_threshold 15",
         "settings put system touch_multitouch_settle_interval 100",
         "settings put system touch_multitouch_min_distance 16",
-        "settings put system touch_multitouch_tapslop 8",
         "settings put system touch_precision_mode 1",
         "settings put system touch_input_lag 0",
         "settings put system pointer_speed_for_game 7",
-        "settings put system touch_boost_hz 480",
+        "settings put system touch_boost_hz 240",
         "settings put system input_dispatcher_timeout 5000",
-        "settings put system touch_scan_rate 480",
+        "settings put system touch_scan_rate 240",
         "settings put system touch_corner_boost 1",
         "settings put system touch_3d_press 0",
         "settings put system touch_edge_suppression 0",
@@ -90,31 +77,21 @@ public class AllCommands {
         "settings put system touch_wet_mode 0",
         "settings put system touch_glove_mode 0",
         "settings put system touch_hover_mode 0",
-        "settings put system lock_gesture_power_button_no_capture 0",
         "settings put system pointer_fill_style 0",
         "settings put system touch_zoom_lock_min_separation 35",
-        "settings put system touch_display_density_dpi 0",
-        "settings put system touch_wake_mode 1",
         "settings put system touch_quick_tap_enabled 1",
         "settings put system touch_double_tap_interval 200",
         "settings put system touch_long_press_vibrate 0",
-        "settings put system touch_slide_lock 0",
         "settings put system touch_curve_smooth 1",
         "settings put system touch_delay_correction 0",
         "settings put system touch_high_precision 1",
         "settings put system touch_game_boost_level 3",
         "settings put system touch_response_boost 1",
         "settings put system touch_multi_finger_gesture 1",
-        "settings put system touch_dynamic_sensitivity 1",
         "settings put system input_pointer_device_1 1",
         "settings put system touch_palm_area_threshold 0",
         "settings put system touch_fast_mode 1",
-        "settings put system touch_interpolation_factor 2",
-        "settings put system touch_velocity_scale 1.5",
-        "settings put system pointer_speed_game_override 7",
         "settings put system touch_sample_ahead 1",
-        "settings put system touch_prediction_enabled 1",
-        "settings put system touch_prediction_duration 5",
         "settings put system touch_min_tracking_id 0",
         "settings put system touch_max_tracking_id 9",
         "settings put system touch_orientation_aware 1",
@@ -279,10 +256,7 @@ public class AllCommands {
         "settings put system touch_zone_79_sensitivity 8",
     };
 
-    // ═══════════════════════════════════════════════
-    // 🌀 Giroscopio Pro (286 cmds)
-    // Calibra giroscopio y sensores de movimiento
-    // ═══════════════════════════════════════════════
+    // 🌀 Giroscopio Pro (268 cmds) ════════════════════════
     public static final String[] CMDS_GYRO_SENSOR = {
         "settings put system accelerometer_rotation 1",
         "settings put system gyroscope_sensitivity 8",
@@ -327,28 +301,17 @@ public class AllCommands {
         "settings put system sensor_direct_channel 1",
         "settings put system sensor_wakeup_mode 0",
         "settings put system imu_temperature_compensation 1",
-        "settings put system sensor_hal_bypass 0",
-        "settings put system gyro_zero_rate_offset 0",
         "settings put system magnetometer_enabled 1",
         "settings put system barometer_enabled 0",
         "settings put system proximity_sensor_enabled 1",
         "settings put system light_sensor_enabled 1",
-        "settings put system gyro_noise_threshold 0",
-        "settings put system gyro_high_pass_filter 1",
-        "settings put system gyro_low_pass_factor 98",
-        "settings put system motion_latency_mode 0",
-        "settings put system sensor_fusion_mode 1",
-        "settings put system gyro_integral_mode 1",
-        "settings put system accel_weight 2",
-        "settings put system gyro_weight 98",
+        "settings put system gyro_zero_rate_offset 0",
         "settings put system orientation_sensor_enabled 1",
         "settings put system rotation_vector_accuracy 3",
         "settings put system gyro_report_latency 0",
         "settings put system sensor_batch_latency 0",
-        "settings put system gyro_max_event_count 1000",
         "settings put system uncalib_gyro_enabled 1",
         "settings put system uncalib_accel_enabled 1",
-        "settings put system uncalib_mag_enabled 0",
         "settings put system gyro_sensor_delay 0",
         "settings put system accel_sensor_delay 0",
         "settings put system sensor_perf_mode 1",
@@ -359,17 +322,10 @@ public class AllCommands {
         "settings put system accel_odr_hz 800",
         "settings put system gyro_sensitivity_lsb 16",
         "settings put system sensor_irq_mode 1",
-        "settings put system gyro_fifo_enabled 0",
-        "settings put system accel_fifo_enabled 0",
         "settings put system sensor_timestamp_mode 1",
-        "settings put system gyro_antialiasing 0",
-        "settings put system gyro_compensation_mode 1",
         "settings put system gyro_dynamic_calibration 1",
         "settings put system gyro_temp_calibration 1",
         "settings put system sensor_hub_enabled 1",
-        "settings put system gyro_shake_detect 0",
-        "settings put system gyro_tilt_detect 0",
-        "settings put system gyro_motion_detect 0",
         "settings put system gyro_game_mode 1",
         "settings put system gyro_fast_response 1",
         "settings put system gyro_axis_1_calib 0",
@@ -572,10 +528,7 @@ public class AllCommands {
         "settings put system gyro_axis_99_scale 1",
     };
 
-    // ═══════════════════════════════════════════════
-    // 🖥️ FPS y Pantalla Max (323 cmds)
-    // Maximiza FPS, refresco de pantalla y GPU
-    // ═══════════════════════════════════════════════
+    // 🖥️ FPS y Pantalla Max (309 cmds) ════════════════════════
     public static final String[] CMDS_FPS_PANTALLA = {
         "settings put global window_animation_scale 0.5",
         "settings put global transition_animation_scale 0.5",
@@ -599,9 +552,7 @@ public class AllCommands {
         "settings put global debug_layout 0",
         "settings put system surface_flinger_swap_interval 1",
         "settings put global skia_renderer_enabled 1",
-        "settings put global hwui_renderer skiagl",
         "settings put system gpu_renderer_enabled 1",
-        "settings put global angle_gl_driver_all_apps 0",
         "settings put system screen_brightness 200",
         "settings put global display_saturation_level 7",
         "settings put global game_mode_config performance",
@@ -618,15 +569,8 @@ public class AllCommands {
         "settings put system gpu_boost_enabled 1",
         "settings put global sf_frame_rate_multiple_threshold 0",
         "settings put global sf_use_phase_offsets_as_durations 1",
-        "settings put global sf_early_phase_offset_ns 0",
-        "settings put global sf_early_app_phase_offset_ns 0",
-        "settings put global sf_early_gl_phase_offset_ns 0",
-        "settings put global sf_early_gl_app_phase_offset_ns 0",
         "settings put system touch_boost_refresh_rate 1",
         "settings put global sf_layer_caching_enabled 0",
-        "settings put global sf_use_color_management 0",
-        "settings put global sf_disable_backpressure 1",
-        "settings put global sf_enable_transaction_tracing 0",
         "settings put system display_smooth_scroll 1",
         "settings put global gpu_comp_tiling 0",
         "settings put system display_low_latency_mode 1",
@@ -635,21 +579,17 @@ public class AllCommands {
         "settings put system vsync_event_phase_offset_ns 1000000",
         "settings put system vsync_sf_event_phase_offset_ns 0",
         "settings put global display_gamma_correction 0",
-        "settings put system screen_recorder_enabled 0",
         "settings put system display_motion_blur_enabled 0",
         "settings put global ui_night_mode 0",
         "settings put system high_text_contrast_enabled 0",
         "settings put system remove_animations 0",
-        "settings put global sf_max_frame_buffer_acquired_during_hw_compose 2",
         "settings put global color_saturation 7",
         "settings put system display_color_enhance 1",
         "settings put global hw_composer_enabled 1",
         "settings put system display_auto_contrast 0",
         "settings put system display_eye_care 0",
         "settings put system display_dc_dimming 0",
-        "settings put system display_hbm_enabled 0",
         "settings put system display_local_tone_mapping 0",
-        "settings put global display_peak_brightness 0",
         "settings put system display_color_temperature 0",
         "settings put system display_adaptive_color 0",
         "settings put system display_vivid_mode 1",
@@ -661,7 +601,6 @@ public class AllCommands {
         "settings put system display_backlite_mode 1",
         "settings put global frameratereduction_enabled 0",
         "settings put system display_color_space 0",
-        "settings put global sf_enable_advanced_sf_phase_offset 0",
         "settings put system display_layer_1_priority 1",
         "settings put global gpu_pipeline_1_boost 1",
         "settings put system display_layer_2_priority 1",
@@ -902,10 +841,7 @@ public class AllCommands {
         "settings put global gpu_pipeline_119_boost 1",
     };
 
-    // ═══════════════════════════════════════════════
-    // ⚡ Rendimiento CPU y RAM (192 cmds)
-    // Libera RAM y optimiza CPU
-    // ═══════════════════════════════════════════════
+    // ⚡ Rendimiento CPU/RAM (192 cmds) ════════════════════════
     public static final String[] CMDS_RENDIMIENTO_CPU = {
         "settings put global always_finish_activities 0",
         "settings put global battery_saver_enabled 0",
@@ -1101,10 +1037,7 @@ public class AllCommands {
         "settings put global process_pool_59_size 32",
     };
 
-    // ═══════════════════════════════════════════════
-    // 🌐 Red y Anti-Lag (233 cmds)
-    // Reduce ping y latencia
-    // ═══════════════════════════════════════════════
+    // 🌐 Red y Anti-Lag (233 cmds) ════════════════════════
     public static final String[] CMDS_RED_LATENCIA = {
         "settings put global wifi_aggressive_handover 1",
         "settings put global wifi_idle_ms 0",
@@ -1341,10 +1274,7 @@ public class AllCommands {
         "settings put global tcp_socket_99_buffer 65536",
     };
 
-    // ═══════════════════════════════════════════════
-    // ♿ Talkback OFF Total (74 cmds)
-    // Desactiva accesibilidad
-    // ═══════════════════════════════════════════════
+    // ♿ Talkback OFF (74 cmds) ════════════════════════
     public static final String[] CMDS_TALKBACK = {
         "settings put secure accessibility_enabled 0",
         "settings put secure touch_exploration_enabled 0",
@@ -1422,10 +1352,7 @@ public class AllCommands {
         "settings put secure accessibility_service_49_enabled 0",
     };
 
-    // ═══════════════════════════════════════════════
-    // 🔋 Anti-Thermal Gaming (81 cmds)
-    // Evita throttling térmico
-    // ═══════════════════════════════════════════════
+    // 🔋 Anti-Thermal (81 cmds) ════════════════════════
     public static final String[] CMDS_BATERIA = {
         "settings put global automatic_power_save_mode 0",
         "settings put global battery_saver_enabled 0",
@@ -1510,10 +1437,7 @@ public class AllCommands {
         "settings put global thermal_zone_59_threshold 85",
     };
 
-    // ═══════════════════════════════════════════════
-    // 🔊 Audio Sin Vibración (70 cmds)
-    // Optimiza audio
-    // ═══════════════════════════════════════════════
+    // 🔊 Audio (70 cmds) ════════════════════════
     public static final String[] CMDS_AUDIO = {
         "settings put system haptic_feedback_enabled 0",
         "settings put system vibrate_when_ringing 0",
@@ -1587,10 +1511,7 @@ public class AllCommands {
         "settings put system audio_stream_49_priority 1",
     };
 
-    // ═══════════════════════════════════════════════
-    // 🔵 Modificación Media (34 cmds)
-    // Foco azul + velocidad extrema + cursor alterado
-    // ═══════════════════════════════════════════════
+    // 🔵 Mod Media (11 cmds) ════════════════════════
     public static final String[] CMDS_MODS_MEDIA = {
         "settings put system display_color_mode 258",
         "settings put system display_color_blue_boost 1",
@@ -1600,40 +1521,14 @@ public class AllCommands {
         "settings put system display_color_temperature 5500",
         "settings put system display_blue_light_filter 0",
         "settings put global display_saturation_level 9",
-        "settings put system pointer_speed 7",
-        "settings put global window_animation_scale 0.0",
-        "settings put global transition_animation_scale 0.0",
-        "settings put global animator_duration_scale 0.0",
-        "settings put system fling_velocity 12000",
-        "settings put system maximum_fling_velocity 12000",
-        "settings put system scroll_friction 0.005",
-        "settings put system touch_report_rate 480",
-        "settings put system touch_boost_hz 960",
-        "settings put system touch_sensitivity_level 15",
-        "settings put system touch_game_boost_level 5",
-        "settings put system touch_response_boost 3",
-        "settings put system touch_velocity_scale 3.0",
-        "settings put system touch_prediction_duration 2",
-        "settings put system touch_latency_reduction 3",
-        "settings put system motion_event_sample_rate 240",
-        "settings put system gyro_sample_rate 400",
-        "settings put system gyro_fast_response 3",
         "settings put system mouse_pointer_speed 7",
         "settings put system cursor_blink_rate 0",
         "settings put system cursor_no_blink 1",
-        "settings put system pointer_acceleration 0",
-        "settings put system touch_velocity_tracker_strategy 3",
-        "settings put system touch_precision_mode 3",
-        "settings put system touch_dynamic_sensitivity 3",
-        "settings put system touch_high_precision 3",
     };
 
-    // ═══════════════════════════════════════════════
-    // 🎯 Calibración Base (6 cmds)
-    // Valores base para calibración
-    // ═══════════════════════════════════════════════
+    // 🎯 Calibración Base (6 cmds) ════════════════════════
     public static final String[] CMDS_CALIBRACION = {
-        "settings put system pointer_speed 5",
+        "settings put system pointer_speed 7",
         "settings put system gyroscope_sensitivity 5",
         "settings put system touch_sensitivity_level 8",
         "settings put system touch_report_rate 240",
@@ -1641,10 +1536,7 @@ public class AllCommands {
         "settings put system gyro_sample_rate 200",
     };
 
-    // ═══════════════════════════════════════════════
-    // 📜 Scroll Pro (194 cmds)
-    // Optimiza scroll y deslizamientos en HUD
-    // ═══════════════════════════════════════════════
+    // 📜 Scroll Pro (189 cmds) ════════════════════════
     public static final String[] CMDS_SCROLL = {
         "settings put system scroll_friction 0.008",
         "settings put system fling_velocity 10000",
@@ -1655,7 +1547,6 @@ public class AllCommands {
         "settings put system overscroll_distance 0",
         "settings put system overfling_distance 0",
         "settings put system touch_min_swipe_speed 60",
-        "settings put system touch_block_velocity 0",
         "settings put system scroll_smoothness 3",
         "settings put system scroll_inertia 2",
         "settings put system scroll_decay_rate 0.95",
@@ -1673,15 +1564,11 @@ public class AllCommands {
         "settings put system swipe_prediction 1",
         "settings put system gesture_scroll_priority 1",
         "settings put system gesture_swipe_priority 1",
-        "settings put system gesture_pinch_priority 0",
         "settings put system horizontal_scroll_boost 1",
         "settings put system vertical_scroll_boost 1",
         "settings put system diagonal_scroll_boost 1",
         "settings put system scroll_jitter_filter 1",
         "settings put system scroll_noise_reduction 1",
-        "settings put system scroll_anti_overshoot 1",
-        "settings put system scroll_predictive_mode 1",
-        "settings put system scroll_high_precision 1",
         "settings put system scroll_zone_1_velocity 8000",
         "settings put system scroll_zone_1_friction 0.01",
         "settings put system scroll_zone_2_velocity 8000",
@@ -1842,10 +1729,7 @@ public class AllCommands {
         "settings put system scroll_zone_79_friction 0.01",
     };
 
-    // ═══════════════════════════════════════════════
-    // 🎯 Anti-Recoil (204 cmds)
-    // Detecta velocidades altas y compensa el recoil
-    // ═══════════════════════════════════════════════
+    // 🎯 Anti-Recoil (190 cmds) ════════════════════════
     public static final String[] CMDS_ANTIRECOIL = {
         "settings put system gyro_recoil_compensation 1",
         "settings put system gyro_recoil_threshold 0.5",
@@ -1857,12 +1741,10 @@ public class AllCommands {
         "settings put system touch_max_velocity_clamp 10000",
         "settings put system touch_velocity_smoothing 2",
         "settings put system touch_anti_overshoot 1",
-        "settings put system touch_jitter_threshold 2",
         "settings put system touch_motion_dampening 0.8",
         "settings put system aim_recoil_compensation 1",
         "settings put system aim_stabilization 2",
         "settings put system aim_smoothing 0.7",
-        "settings put system aim_lock_assist 0",
         "settings put system aim_anti_drift 1",
         "settings put system aim_velocity_clamp 5000",
         "settings put system ff_recoil_pattern_x 0",
@@ -1872,18 +1754,6 @@ public class AllCommands {
         "settings put system ff_anti_kick 1",
         "settings put system ff_burst_compensation 1",
         "settings put system ff_full_auto_compensation 1",
-        "settings put system display_refresh_rate_game 90",
-        "settings put system touch_boost_refresh_rate 1",
-        "settings put system peak_refresh_rate 90",
-        "settings put system min_refresh_rate 60",
-        "settings put global window_animation_scale 0.5",
-        "settings put global transition_animation_scale 0.5",
-        "settings put global animator_duration_scale 0.5",
-        "settings put global tcp_no_delay 1",
-        "settings put global wifi_low_latency_mode 1",
-        "settings put global game_network_boost 1",
-        "settings put global mobile_data_always_on 1",
-        "settings put global multipath_preference 3",
         "settings put system velocity_safety_clamp 12000",
         "settings put system sensitivity_safety_max 15",
         "settings put system report_rate_safety_max 480",
@@ -2051,6 +1921,32 @@ public class AllCommands {
         "settings put system recoil_strength_zone_78 0.7",
         "settings put system recoil_compensation_zone_79 1",
         "settings put system recoil_strength_zone_79 0.7",
+    };
+
+    // 📺 Resolución Estirada (22 cmds) ════════════════════════
+    public static final String[] CMDS_RESOLUCION = {
+        "settings put system display_size_forced ",
+        "settings put global display_density_forced 0",
+        "settings put system display_aspect_ratio_force 21:9",
+        "settings put system display_stretch_mode 1",
+        "settings put system display_stretch_factor_x 1.15",
+        "settings put system display_stretch_factor_y 1.0",
+        "settings put system display_widescreen_mode 1",
+        "settings put system display_zoom_factor 1.1",
+        "settings put system game_aspect_ratio_force 1",
+        "settings put system game_full_screen 1",
+        "settings put system game_screen_width_extend 1.15",
+        "settings put system game_screen_height_keep 1.0",
+        "settings put system display_safe_stretch 1",
+        "settings put system display_revertable 1",
+        "settings put system ff_widescreen_mode 1",
+        "settings put system ff_aspect_force 21:9",
+        "settings put system ff_horizontal_stretch 1.15",
+        "settings put system game_immersive_mode 1",
+        "settings put system display_cutout_mode 2",
+        "settings put global force_high_resolution 1",
+        "settings put system display_render_resolution 1080",
+        "settings put system display_pixel_format 565",
     };
 
 }
