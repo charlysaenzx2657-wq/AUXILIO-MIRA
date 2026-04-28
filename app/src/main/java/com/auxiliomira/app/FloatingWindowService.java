@@ -365,6 +365,7 @@ public class FloatingWindowService extends Service {
                     actualizarStatus("⚡ " + a + "/" + t, 0xFFFFCC00);
                 }
                 public void onComplete(int t) {
+                    aplicados[0] = t;
                     mostrarProgreso(false);
                     if (aplicados[0] == 0) {
                         actualizarStatus("❌ 0 - Diag.", 0xFFFF0000);
@@ -401,6 +402,7 @@ public class FloatingWindowService extends Service {
                     actualizarStatus("⚡ " + a + "/" + t, 0xFFFFCC00);
                 }
                 public void onComplete(int t) {
+                    aplicados[0] = t;
                     mostrarProgreso(false);
                     actualizarStatus("✅ TODO: " + aplicados[0], 0xFF00FF00);
                     NotifHelper.notificarImportante(FloatingWindowService.this, "✅ TODO", aplicados[0] + " cmds aplicados");

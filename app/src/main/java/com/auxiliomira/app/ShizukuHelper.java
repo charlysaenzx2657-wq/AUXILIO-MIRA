@@ -243,9 +243,9 @@ public class ShizukuHelper {
             progThread.start();
 
             // waitFor garantiza que TODOS los comandos terminaron
+            try { waitFor.invoke(proc); } catch (Throwable ignored) {}
             terminado[0] = true;
             progThread.join(500);
-            try { waitFor.invoke(proc); } catch (Throwable ignored) {}
 
             if (cb != null) ui.post(() -> {
                 cb.onProgress(total, total, "");
@@ -292,9 +292,9 @@ public class ShizukuHelper {
             progThread.setDaemon(true);
             progThread.start();
 
+            proc.waitFor();
             terminado[0] = true;
             progThread.join(500);
-            proc.waitFor();
 
             if (cb != null) ui.post(() -> {
                 cb.onProgress(total, total, "");
