@@ -71,10 +71,13 @@ public class ShizukuHelper {
 
     public static boolean tienePermiso(Context ctx) {
         try {
-            if (Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) return true;
+            if (Shizuku.pingBinder() &&
+                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) return true;
         } catch (Throwable ignored) {}
         try {
-            if (ctx.checkCallingOrSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED) return true;
+            if (ctx.checkCallingOrSelfPermission(
+                "android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED)
+                return true;
         } catch (Throwable ignored) {}
         try {
             ContentResolver cr = ctx.getContentResolver();
@@ -86,8 +89,11 @@ public class ShizukuHelper {
     }
 
     public static boolean tieneRoot() {
-        try { Process p = Runtime.getRuntime().exec("which su"); p.waitFor(); return p.exitValue() == 0; }
-        catch (Exception e) { return false; }
+        try {
+            Process p = Runtime.getRuntime().exec("which su");
+            p.waitFor();
+            return p.exitValue() == 0;
+        } catch (Exception e) { return false; }
     }
 
     public static boolean shizukuActivo(Context ctx) {
@@ -105,7 +111,10 @@ public class ShizukuHelper {
     public static String estadoPermisoDetallado(Context ctx) {
         boolean shInst = shizukuInstalado(ctx), shRun = shizukuActivo(ctx);
         boolean pPM = false, pSec = false, pSh = false, shReg = false;
-        try { pPM = ctx.checkCallingOrSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED; } catch (Throwable ignored) {}
+        try {
+            pPM = ctx.checkCallingOrSelfPermission(
+                "android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED;
+        } catch (Throwable ignored) {}
         try {
             ContentResolver cr = ctx.getContentResolver();
             String o = Settings.Secure.getString(cr, "user_setup_complete");
@@ -113,54 +122,60 @@ public class ShizukuHelper {
             pSec = true;
         } catch (Throwable ignored) {}
         try {
-            if (Shizuku.pingBinder()) { shReg = true; pSh = (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED); }
+            if (Shizuku.pingBinder()) {
+                shReg = true;
+                pSh = (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED);
+            }
         } catch (Throwable ignored) {}
         StringBuilder sb = new StringBuilder();
-        sb.append("Shizuku instalado: ").append(shInst?"SI":"NO").append("\n");
-        sb.append("Shizuku corriendo: ").append(shRun?"SI":"NO").append("\n");
-        sb.append("App registrada: ").append(shReg?"SI":"NO").append("\n");
-        sb.append("Permiso PM: ").append(pPM?"SI":"NO").append("\n");
-        sb.append("Permiso Settings: ").append(pSec?"SI":"NO").append("\n");
-        sb.append("Permiso Shizuku: ").append(pSh?"SI":"NO").append("\n\n");
+        sb.append("Shizuku instalado: ").append(shInst ? "SI" : "NO").append("\n");
+        sb.append("Shizuku corriendo: ").append(shRun ? "SI" : "NO").append("\n");
+        sb.append("App registrada: ").append(shReg ? "SI" : "NO").append("\n");
+        sb.append("Permiso PM: ").append(pPM ? "SI" : "NO").append("\n");
+        sb.append("Permiso Settings: ").append(pSec ? "SI" : "NO").append("\n");
+        sb.append("Permiso Shizuku: ").append(pSh ? "SI" : "NO").append("\n\n");
         if (pPM || pSec || pSh) sb.append("RESULTADO: PUEDES INYECTAR");
-        else if (shReg) sb.append("RESULTADO: Toca CONECTAR SHIZUKU para autorizar");
-        else if (shRun) sb.append("RESULTADO: Reinicia y autoriza el popup");
-        else if (shInst) sb.append("RESULTADO: Inicia Shizuku primero");
+        else if (shReg) sb.append("RESULTADO: Autoriza en Shizuku");
+        else if (shRun) sb.append("RESULTADO: Reinicia y autoriza popup");
+        else if (shInst) sb.append("RESULTADO: Inicia Shizuku");
         else sb.append("RESULTADO: Instala Shizuku");
         return sb.toString();
     }
 
     /**
-     * ESTRATEGIA ULTRA RÁPIDA:
-     * Abre UN SOLO proceso shell "rish" y le manda TODOS los comandos de golpe
-     * por stdin. Esto evita el overhead de lanzar un proceso por comando.
-     * 1000 comandos = ~3-5 segundos en lugar de 30-60s.
+     * INYECCION ULTRA RAPIDA:
+     * Abre UN proceso Shizuku y manda TODOS los comandos por stdin de golpe.
+     * 1500 cmds = ~5-8 segundos total.
+     *
+     * Usa Shizuku.newProcess() via reflection para abrir un shell privilegiado,
+     * luego escribe todos los comandos por el stdin del proceso.
      */
     public static void aplicarComandosAsync(Context ctx, String[] comandos,
                                              ProgressCallback cb, Handler ui) {
         new Thread(() -> {
             int total = comandos.length;
-            boolean tieneShPerm = false;
+
+            // Detectar el mejor método disponible
+            boolean shizukuOK = false;
             try {
-                tieneShPerm = Shizuku.pingBinder() &&
+                shizukuOK = Shizuku.pingBinder() &&
                     Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
             } catch (Throwable ignored) {}
-            boolean tieneRoot = tieneRoot();
-            boolean tieneContentResolver = tienePermiso(ctx);
+            boolean rootOK = tieneRoot();
+            boolean crOK = tienePermiso(ctx);
 
-            Log.i(TAG, "Ultra-inyeccion: " + total + " cmds | CR=" + tieneContentResolver + " sh=" + tieneShPerm + " root=" + tieneRoot);
+            Log.i(TAG, "Modo: shizuku=" + shizukuOK + " root=" + rootOK + " cr=" + crOK);
 
-            if (tieneShPerm) {
-                // MÉTODO 1: Shell rish con pipe — el más rápido
-                inyectarConShellPipe(comandos, cb, ui, total, "rish");
-            } else if (tieneRoot) {
-                // MÉTODO 2: Shell su con pipe
-                inyectarConShellPipe(comandos, cb, ui, total, "su");
-            } else if (tieneContentResolver) {
-                // MÉTODO 3: ContentResolver (solo settings put, sin shell)
+            if (shizukuOK) {
+                // MEJOR: Un solo proceso Shizuku con todos los cmds
+                inyectarConShizukuNewProcess(comandos, cb, ui, total);
+            } else if (rootOK) {
+                // ROOT: Un solo proceso su con todos los cmds
+                inyectarConSuPipe(comandos, cb, ui, total);
+            } else if (crOK) {
+                // Sin shell: ContentResolver 1 por 1 (solo settings put)
                 inyectarConContentResolver(ctx, comandos, cb, ui, total);
             } else {
-                // Sin método — reportar error
                 if (cb != null) ui.post(() -> {
                     cb.onError("", "Sin permiso. Activa Shizuku.");
                     cb.onComplete(0);
@@ -170,105 +185,162 @@ public class ShizukuHelper {
     }
 
     /**
-     * Abre un proceso shell (rish o su) y manda TODOS los comandos por stdin.
-     * Reporta progreso estimado basado en tiempo transcurrido.
+     * Usa Shizuku.newProcess() para abrir un shell sh privilegiado
+     * y escribe todos los comandos por stdin de una sola vez.
      */
-    private static void inyectarConShellPipe(String[] comandos, ProgressCallback cb, Handler ui, int total, String shell) {
+    private static void inyectarConShizukuNewProcess(String[] comandos,
+                                                      ProgressCallback cb, Handler ui, int total) {
         try {
-            Process proceso;
-            if ("rish".equals(shell)) {
-                proceso = Runtime.getRuntime().exec("rish");
-            } else {
-                proceso = Runtime.getRuntime().exec("su");
-            }
+            // Abrir proceso sh via Shizuku
+            Method newProcess = Shizuku.class.getDeclaredMethod(
+                "newProcess", String[].class, String[].class, String.class);
+            newProcess.setAccessible(true);
+            String[] shell = {"sh"};
+            Object proc = newProcess.invoke(null, shell, null, null);
+            if (proc == null) throw new Exception("newProcess devolvio null");
 
-            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(proceso.getOutputStream()));
+            // Obtener stdin/stdout via reflection
+            Method getOS = proc.getClass().getMethod("getOutputStream");
+            Method getIS = proc.getClass().getMethod("getInputStream");
+            Method waitFor = proc.getClass().getMethod("waitFor");
 
-            // Mandar todos los comandos de una vez
+            java.io.OutputStream os = (java.io.OutputStream) getOS.invoke(proc);
+            java.io.InputStream is = (java.io.InputStream) getIS.invoke(proc);
+
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+
+            // Enviar todos los comandos de golpe
             for (String cmd : comandos) {
                 writer.write(cmd);
                 writer.newLine();
             }
-            writer.write("echo __DONE__");
+            // Marcador de fin
+            writer.write("echo __AUXILIO_DONE__");
             writer.newLine();
-            writer.write("exit");
+            writer.write("exit 0");
             writer.newLine();
             writer.flush();
-            writer.close();
 
-            // Leer output para detectar cuando termina + reportar progreso estimado
-            BufferedReader reader = new BufferedReader(new InputStreamReader(proceso.getInputStream()));
-            long inicio = System.currentTimeMillis();
-            // Estimar tiempo total: ~3ms por comando
-            long estimadoMs = total * 3L;
-
-            // Hilo que reporta progreso basado en tiempo
+            // Hilo de progreso estimado mientras esperamos
             final boolean[] terminado = {false};
-            Thread progressThread = new Thread(() -> {
+            long inicio = System.currentTimeMillis();
+            long estimadoMs = total * 3L; // ~3ms por cmd
+            Thread progThread = new Thread(() -> {
                 while (!terminado[0]) {
                     long elapsed = System.currentTimeMillis() - inicio;
                     int estimado = (int) Math.min((elapsed * total) / Math.max(estimadoMs, 1), total - 1);
                     final int est = estimado;
                     if (cb != null) ui.post(() -> cb.onProgress(est, total, ""));
-                    try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+                    try { Thread.sleep(250); } catch (InterruptedException ignored) {}
                 }
             });
-            progressThread.start();
+            progThread.setDaemon(true);
+            progThread.start();
 
-            // Esperar a que aparezca __DONE__ en el output
+            // Esperar marcador de fin
             String line;
-            boolean done = false;
             while ((line = reader.readLine()) != null) {
-                if (line.contains("__DONE__")) { done = true; break; }
+                if (line.contains("__AUXILIO_DONE__")) break;
             }
             terminado[0] = true;
-            progressThread.join();
-            proceso.waitFor();
+            progThread.join(500);
 
-            final boolean doneFinal = done;
+            try { waitFor.invoke(proc); } catch (Throwable ignored) {}
+
             if (cb != null) ui.post(() -> {
                 cb.onProgress(total, total, "");
                 cb.onComplete(total);
             });
-        } catch (Exception e) {
-            Log.e(TAG, "shellPipe error: " + e.getMessage());
-            // Fallback a ContentResolver si shell falla
-            if (cb != null) ui.post(() -> {
-                cb.onError("shell", e.getMessage());
-                cb.onComplete(0);
-            });
+
+        } catch (Throwable e) {
+            Log.e(TAG, "shizukuNewProcess error: " + e.getMessage());
+            // Fallback a ContentResolver
+            inyectarConContentResolver(null, comandos, cb, ui, total);
         }
     }
 
     /**
-     * ContentResolver para cuando solo hay WRITE_SECURE_SETTINGS pero no shell.
-     * Aplica 1 por 1 pero sin sleep — rápido igual.
+     * Fallback con su (root): mismo enfoque pipe.
+     */
+    private static void inyectarConSuPipe(String[] comandos,
+                                           ProgressCallback cb, Handler ui, int total) {
+        try {
+            Process proc = Runtime.getRuntime().exec("su");
+            BufferedWriter writer = new BufferedWriter(
+                new OutputStreamWriter(proc.getOutputStream()));
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(proc.getInputStream()));
+
+            for (String cmd : comandos) { writer.write(cmd); writer.newLine(); }
+            writer.write("echo __AUXILIO_DONE__"); writer.newLine();
+            writer.write("exit 0"); writer.newLine();
+            writer.flush();
+
+            final boolean[] terminado = {false};
+            long inicio = System.currentTimeMillis();
+            long estimadoMs = total * 3L;
+            Thread progThread = new Thread(() -> {
+                while (!terminado[0]) {
+                    long elapsed = System.currentTimeMillis() - inicio;
+                    int est = (int) Math.min((elapsed * total) / Math.max(estimadoMs, 1), total - 1);
+                    if (cb != null) ui.post(() -> cb.onProgress(est, total, ""));
+                    try { Thread.sleep(250); } catch (InterruptedException ignored) {}
+                }
+            });
+            progThread.setDaemon(true);
+            progThread.start();
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("__AUXILIO_DONE__")) break;
+            }
+            terminado[0] = true;
+            progThread.join(500);
+            proc.waitFor();
+
+            if (cb != null) ui.post(() -> {
+                cb.onProgress(total, total, "");
+                cb.onComplete(total);
+            });
+
+        } catch (Exception e) {
+            Log.e(TAG, "suPipe error: " + e.getMessage());
+            if (cb != null) ui.post(() -> cb.onComplete(0));
+        }
+    }
+
+    /**
+     * Fallback sin shell: ContentResolver para "settings put" solamente.
      */
     private static void inyectarConContentResolver(Context ctx, String[] comandos,
                                                     ProgressCallback cb, Handler ui, int total) {
+        if (ctx == null) {
+            if (cb != null) ui.post(() -> cb.onComplete(0));
+            return;
+        }
+        ContentResolver cr = ctx.getContentResolver();
         int aplicados = 0;
         for (int i = 0; i < total; i++) {
             String cmd = comandos[i].trim();
-            boolean ok = false;
             if (cmd.startsWith("settings put ")) {
                 try {
                     String[] p = cmd.split(" ", 5);
                     if (p.length >= 4) {
                         String ns = p[2], key = p[3], val = p.length > 4 ? p[4] : "";
-                        ContentResolver cr = ctx.getContentResolver();
+                        boolean ok = false;
                         switch (ns) {
                             case "system": ok = Settings.System.putString(cr, key, val); break;
                             case "secure": ok = Settings.Secure.putString(cr, key, val); break;
                             case "global": ok = Settings.Global.putString(cr, key, val); break;
                         }
+                        if (ok) aplicados++;
                     }
                 } catch (Throwable ignored) {}
             }
-            if (ok) aplicados++;
-            // Reportar cada 50
             if (i % 50 == 0 || i == total - 1) {
-                final int ap = aplicados, idx = i;
-                if (cb != null) ui.post(() -> cb.onProgress(idx + 1, total, cmd));
+                final int idx = i + 1;
+                if (cb != null) ui.post(() -> cb.onProgress(idx, total, cmd));
             }
         }
         final int apFinal = aplicados;
@@ -281,26 +353,14 @@ public class ShizukuHelper {
     }
 
     public static void limpiarCache(Context ctx) {
-        String[] cmd = {
-            "settings put global dropbox_age_seconds 0",
-            "settings put global dropbox_max_files 0",
-            "settings put global event_log_max_rows 0",
-            "settings put global fstrim_mandatory_interval 0",
-            "settings put global package_verifier_enable 0",
-            "settings put global netstats_enabled 0",
-        };
         ContentResolver cr = ctx.getContentResolver();
-        for (String c : cmd) {
-            try {
-                String[] p = c.split(" ", 5);
-                if (p.length >= 4) {
-                    switch (p[2]) {
-                        case "system": Settings.System.putString(cr, p[3], p.length > 4 ? p[4] : ""); break;
-                        case "secure": Settings.Secure.putString(cr, p[3], p.length > 4 ? p[4] : ""); break;
-                        case "global": Settings.Global.putString(cr, p[3], p.length > 4 ? p[4] : ""); break;
-                    }
-                }
-            } catch (Throwable ignored) {}
+        String[][] cmds = {
+            {"global","dropbox_age_seconds","0"}, {"global","dropbox_max_files","0"},
+            {"global","event_log_max_rows","0"}, {"global","fstrim_mandatory_interval","0"},
+            {"global","package_verifier_enable","0"}, {"global","netstats_enabled","0"},
+        };
+        for (String[] c : cmds) {
+            try { Settings.Global.putString(cr, c[1], c[2]); } catch (Throwable ignored) {}
         }
         try { deleteDir(ctx.getCacheDir()); } catch (Exception ignored) {}
         try { deleteDir(ctx.getExternalCacheDir()); } catch (Exception ignored) {}
