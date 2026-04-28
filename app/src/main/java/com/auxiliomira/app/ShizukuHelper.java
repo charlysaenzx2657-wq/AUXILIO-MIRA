@@ -216,6 +216,9 @@ public class ShizukuHelper {
                 writer.newLine();
             }
             // Marcador de fin
+            // sync espera que el último comando termine antes de imprimir DONE
+            writer.write("sync");
+            writer.newLine();
             writer.write("echo __AUXILIO_DONE__");
             writer.newLine();
             writer.write("exit 0");
@@ -273,6 +276,7 @@ public class ShizukuHelper {
                 new InputStreamReader(proc.getInputStream()));
 
             for (String cmd : comandos) { writer.write(cmd); writer.newLine(); }
+            writer.write("sync"); writer.newLine();
             writer.write("echo __AUXILIO_DONE__"); writer.newLine();
             writer.write("exit 0"); writer.newLine();
             writer.flush();
