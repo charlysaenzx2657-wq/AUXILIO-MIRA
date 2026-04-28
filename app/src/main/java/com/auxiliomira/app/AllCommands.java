@@ -1928,8 +1928,8 @@ public class AllCommands {
     // wm density: cambia la densidad
     // 720x1600 da una pantalla mas ancha en relacion al alto
     public static final String[] CMDS_RESOLUCION = {
-        "wm size 720x1600",
-        "wm density 380",
+        "wm size 1349x3000",
+        "wm density 256",
         "settings put system display_aspect_ratio_force 21:9",
         "settings put system display_widescreen_mode 1",
         "settings put system game_full_screen 1",
