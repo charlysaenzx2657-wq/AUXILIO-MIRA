@@ -185,8 +185,10 @@ public class ShizukuHelper {
     }
 
     /**
-     * Usa Shizuku.newProcess() para abrir un shell sh privilegiado
-     * y escribe todos los comandos por stdin de una sola vez.
+     * Usa Shizuku.newProcess() para abrir un shell sh privilegiado.
+     * - Drena stdout Y stderr en hilos daemon (evita que el pipe se llene y bloquee el shell)
+     * - Cierra stdin (EOF) para que el shell salga limpiamente tras procesar todos los comandos
+     * - waitFor con timeout de 120s para no colgar si Shizuku falla
      */
     private static void inyectarConShizukuNewProcess(String[] comandos,
                                                       ProgressCallback cb, Handler ui, int total) {
@@ -198,23 +200,39 @@ public class ShizukuHelper {
             Object proc = newProcess.invoke(null, shell, null, null);
             if (proc == null) throw new Exception("newProcess devolvio null");
 
-            Method getOS = proc.getClass().getMethod("getOutputStream");
-            Method getIS = proc.getClass().getMethod("getInputStream");
-            Method waitFor = proc.getClass().getMethod("waitFor");
+            Method getOS      = proc.getClass().getMethod("getOutputStream");
+            Method getIS      = proc.getClass().getMethod("getInputStream");
+            Method getES      = proc.getClass().getMethod("getErrorStream");
+            Method waitForM   = proc.getClass().getMethod("waitFor");
+            Method destroyM   = proc.getClass().getMethod("destroy");
 
             java.io.OutputStream os = (java.io.OutputStream) getOS.invoke(proc);
-            java.io.InputStream is = (java.io.InputStream) getIS.invoke(proc);
+            java.io.InputStream  is = (java.io.InputStream)  getIS.invoke(proc);
+            java.io.InputStream  es = (java.io.InputStream)  getES.invoke(proc);
 
+            // Drenar stdout y stderr en hilos daemon para que el shell no se bloquee
+            // (settings put puede escribir errores a stderr en comandos no reconocidos)
+            Thread drainOut = new Thread(() -> {
+                byte[] buf = new byte[4096];
+                try { while (is.read(buf) != -1) {} } catch (Throwable ignored) {}
+            });
+            Thread drainErr = new Thread(() -> {
+                byte[] buf = new byte[4096];
+                try { while (es.read(buf) != -1) {} } catch (Throwable ignored) {}
+            });
+            drainOut.setDaemon(true);
+            drainErr.setDaemon(true);
+            drainOut.start();
+            drainErr.start();
+
+            // Escribir todos los comandos y cerrar stdin
+            // EOF es la señal para que el shell salga despues de procesar todo
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os));
-            final BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-
-            // Enviar todos los comandos + marcador al final
             for (String cmd : comandos) { writer.write(cmd); writer.newLine(); }
-            writer.write("echo __AUXILIO_DONE__"); writer.newLine();
             writer.flush();
-            writer.close(); // EOF -> el shell termina solo tras leer todo
+            writer.close();
 
-            // Hilo de progreso estimado
+            // Hilo de progreso estimado mientras esperamos
             final boolean[] terminado = {false};
             long inicio = System.currentTimeMillis();
             long estimadoMs = total * 3L;
@@ -229,15 +247,18 @@ public class ShizukuHelper {
             progThread.setDaemon(true);
             progThread.start();
 
-            // Leer stdout hasta __AUXILIO_DONE__ — garantia real de ejecucion completa
-            try {
-                String linea;
-                while ((linea = reader.readLine()) != null) {
-                    if (linea.contains("__AUXILIO_DONE__")) break;
-                }
-            } catch (Throwable ignored) {}
+            // waitFor con timeout de 120s — evita colgar si Shizuku tiene bugs
+            Thread waiter = new Thread(() -> {
+                try { waitForM.invoke(proc); } catch (Throwable ignored) {}
+            });
+            waiter.setDaemon(true);
+            waiter.start();
+            waiter.join(120_000L);
+            if (waiter.isAlive()) {
+                Log.w(TAG, "waitFor timeout, destruyendo proceso");
+                try { destroyM.invoke(proc); } catch (Throwable ignored) {}
+            }
 
-            try { waitFor.invoke(proc); } catch (Throwable ignored) {}
             terminado[0] = true;
             progThread.join(500);
 
@@ -253,21 +274,35 @@ public class ShizukuHelper {
     }
 
     /**
-     * Fallback con su (root): mismo enfoque pipe.
+     * Fallback con su (root): mismo enfoque — drena stderr, cierra stdin con EOF.
      */
     private static void inyectarConSuPipe(String[] comandos,
                                            ProgressCallback cb, Handler ui, int total) {
         try {
             Process proc = Runtime.getRuntime().exec("su");
-            BufferedWriter writer = new BufferedWriter(
-                new OutputStreamWriter(proc.getOutputStream()));
-            final BufferedReader reader = new BufferedReader(
-                new InputStreamReader(proc.getInputStream()));
 
+            // Drenar stderr para que no bloquee el pipe
+            java.io.InputStream es = proc.getErrorStream();
+            Thread drainErr = new Thread(() -> {
+                byte[] buf = new byte[4096];
+                try { while (es.read(buf) != -1) {} } catch (Throwable ignored) {}
+            });
+            drainErr.setDaemon(true);
+            drainErr.start();
+
+            // Drenar stdout también
+            java.io.InputStream is = proc.getInputStream();
+            Thread drainOut = new Thread(() -> {
+                byte[] buf = new byte[4096];
+                try { while (is.read(buf) != -1) {} } catch (Throwable ignored) {}
+            });
+            drainOut.setDaemon(true);
+            drainOut.start();
+
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(proc.getOutputStream()));
             for (String cmd : comandos) { writer.write(cmd); writer.newLine(); }
-            writer.write("echo __AUXILIO_DONE__"); writer.newLine();
             writer.flush();
-            writer.close(); // EOF -> el shell termina solo tras leer todo
+            writer.close(); // EOF -> el shell procesa todo y sale
 
             final boolean[] terminado = {false};
             long inicio = System.currentTimeMillis();
@@ -282,14 +317,6 @@ public class ShizukuHelper {
             });
             progThread.setDaemon(true);
             progThread.start();
-
-            // Leer stdout hasta __AUXILIO_DONE__ — garantia real
-            try {
-                String linea;
-                while ((linea = reader.readLine()) != null) {
-                    if (linea.contains("__AUXILIO_DONE__")) break;
-                }
-            } catch (Throwable ignored) {}
 
             proc.waitFor();
             terminado[0] = true;
