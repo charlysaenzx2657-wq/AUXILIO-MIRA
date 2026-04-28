@@ -242,14 +242,9 @@ public class ShizukuHelper {
             progThread.setDaemon(true);
             progThread.start();
 
-            // Esperar marcador de fin
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.contains("__AUXILIO_DONE__")) break;
-            }
+            // waitFor garantiza que TODOS los comandos terminaron
             terminado[0] = true;
             progThread.join(500);
-
             try { waitFor.invoke(proc); } catch (Throwable ignored) {}
 
             if (cb != null) ui.post(() -> {
@@ -297,10 +292,6 @@ public class ShizukuHelper {
             progThread.setDaemon(true);
             progThread.start();
 
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.contains("__AUXILIO_DONE__")) break;
-            }
             terminado[0] = true;
             progThread.join(500);
             proc.waitFor();
