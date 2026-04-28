@@ -191,7 +191,6 @@ public class ShizukuHelper {
     private static void inyectarConShizukuNewProcess(String[] comandos,
                                                       ProgressCallback cb, Handler ui, int total) {
         try {
-            // Abrir proceso sh via Shizuku
             Method newProcess = Shizuku.class.getDeclaredMethod(
                 "newProcess", String[].class, String[].class, String.class);
             newProcess.setAccessible(true);
@@ -199,7 +198,6 @@ public class ShizukuHelper {
             Object proc = newProcess.invoke(null, shell, null, null);
             if (proc == null) throw new Exception("newProcess devolvio null");
 
-            // Obtener stdin/stdout via reflection
             Method getOS = proc.getClass().getMethod("getOutputStream");
             Method getIS = proc.getClass().getMethod("getInputStream");
             Method waitFor = proc.getClass().getMethod("waitFor");
@@ -208,33 +206,22 @@ public class ShizukuHelper {
             java.io.InputStream is = (java.io.InputStream) getIS.invoke(proc);
 
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os));
-            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            final BufferedReader reader = new BufferedReader(new InputStreamReader(is));
 
-            // Enviar todos los comandos de golpe
-            for (String cmd : comandos) {
-                writer.write(cmd);
-                writer.newLine();
-            }
-            // Marcador de fin
-            // sync espera que el último comando termine antes de imprimir DONE
-            writer.write("wait");
-            writer.newLine();
-            writer.write("true"); writer.newLine();
-            writer.write("echo __AUXILIO_DONE__");
-            writer.newLine();
-            writer.write("exit 0");
-            writer.newLine();
+            // Enviar todos los comandos + marcador al final
+            for (String cmd : comandos) { writer.write(cmd); writer.newLine(); }
+            writer.write("echo __AUXILIO_DONE__"); writer.newLine();
             writer.flush();
+            writer.close(); // EOF -> el shell termina solo tras leer todo
 
-            // Hilo de progreso estimado mientras esperamos
+            // Hilo de progreso estimado
             final boolean[] terminado = {false};
             long inicio = System.currentTimeMillis();
-            long estimadoMs = total * 3L; // ~3ms por cmd
+            long estimadoMs = total * 3L;
             Thread progThread = new Thread(() -> {
                 while (!terminado[0]) {
                     long elapsed = System.currentTimeMillis() - inicio;
-                    int estimado = (int) Math.min((elapsed * total) / Math.max(estimadoMs, 1), total - 1);
-                    final int est = estimado;
+                    int est = (int) Math.min((elapsed * total) / Math.max(estimadoMs, 1), total - 1);
                     if (cb != null) ui.post(() -> cb.onProgress(est, total, ""));
                     try { Thread.sleep(250); } catch (InterruptedException ignored) {}
                 }
@@ -242,7 +229,14 @@ public class ShizukuHelper {
             progThread.setDaemon(true);
             progThread.start();
 
-            // waitFor garantiza que TODOS los comandos terminaron
+            // Leer stdout hasta __AUXILIO_DONE__ — garantia real de ejecucion completa
+            try {
+                String linea;
+                while ((linea = reader.readLine()) != null) {
+                    if (linea.contains("__AUXILIO_DONE__")) break;
+                }
+            } catch (Throwable ignored) {}
+
             try { waitFor.invoke(proc); } catch (Throwable ignored) {}
             terminado[0] = true;
             progThread.join(500);
@@ -254,7 +248,6 @@ public class ShizukuHelper {
 
         } catch (Throwable e) {
             Log.e(TAG, "shizukuNewProcess error: " + e.getMessage());
-            // Fallback a ContentResolver
             inyectarConContentResolver(null, comandos, cb, ui, total);
         }
     }
@@ -268,15 +261,13 @@ public class ShizukuHelper {
             Process proc = Runtime.getRuntime().exec("su");
             BufferedWriter writer = new BufferedWriter(
                 new OutputStreamWriter(proc.getOutputStream()));
-            BufferedReader reader = new BufferedReader(
+            final BufferedReader reader = new BufferedReader(
                 new InputStreamReader(proc.getInputStream()));
 
             for (String cmd : comandos) { writer.write(cmd); writer.newLine(); }
-            writer.write("wait"); writer.newLine();
-            writer.write("true"); writer.newLine();
             writer.write("echo __AUXILIO_DONE__"); writer.newLine();
-            writer.write("exit 0"); writer.newLine();
             writer.flush();
+            writer.close(); // EOF -> el shell termina solo tras leer todo
 
             final boolean[] terminado = {false};
             long inicio = System.currentTimeMillis();
@@ -291,6 +282,14 @@ public class ShizukuHelper {
             });
             progThread.setDaemon(true);
             progThread.start();
+
+            // Leer stdout hasta __AUXILIO_DONE__ — garantia real
+            try {
+                String linea;
+                while ((linea = reader.readLine()) != null) {
+                    if (linea.contains("__AUXILIO_DONE__")) break;
+                }
+            } catch (Throwable ignored) {}
 
             proc.waitFor();
             terminado[0] = true;
